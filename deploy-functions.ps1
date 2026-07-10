@@ -15,12 +15,7 @@
 # ============================================================
 
 $ErrorActionPreference = "Stop"
-$ProjectRef = "PASTE_PREPROD_PROJECT_REF"   # <- ref ของ project preprod (ห้ามใช้ lmoqbnztmwjwzowqeorz ซึ่งเป็น production)
-
-if ($ProjectRef -eq "PASTE_PREPROD_PROJECT_REF") {
-  Write-Host "ERROR: set `$ProjectRef to your PREPROD project ref first (edit this file)." -ForegroundColor Red
-  exit 1
-}
+$ProjectRef = "hxjdaueduibkasokawqx"   # <- project preprod ([Preprod] OSO-TDAC Operational Report) — ห้ามใช้ lmoqbnztmwjwzowqeorz ซึ่งเป็น production
 
 Set-Location -LiteralPath $PSScriptRoot
 

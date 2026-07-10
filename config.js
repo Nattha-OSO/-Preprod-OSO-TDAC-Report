@@ -8,6 +8,6 @@
 //   - SUPABASE_ANON_KEY = anon / public key (เปิดเผยใน client ได้ปลอดภัย เพราะมี RLS คุม)
 // ============================================================
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://PASTE_PREPROD_PROJECT_REF.supabase.co",
-  SUPABASE_ANON_KEY: "PASTE_PREPROD_ANON_KEY"
+  SUPABASE_URL: "https://hxjdaueduibkasokawqx.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4amRhdWVkdWlia2Fzb2thd3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDQ5NTUsImV4cCI6MjA5OTIyMDk1NX0.8neQjpo9Dndae1B3Ig4WlA5uCXM9-Ui5BiW7H-3BQB4"
 };
