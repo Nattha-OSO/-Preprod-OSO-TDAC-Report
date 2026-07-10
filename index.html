@@ -225,6 +225,43 @@
     .pub-top h1{font-size:19px}
     .pub-guide-btn{width:100%}
   }
+
+  /* ==================================================================
+     THEME REFRESH — "Navy-Gold (2b)"  · รีสกินเท่านั้น (ไม่แตะ HTML/JS)
+     ปรับเฉพาะรูปลักษณ์ให้ตรงแบบดีไซน์ · ลบทั้งบล็อกนี้เพื่อย้อนธีมเดิม
+     ================================================================== */
+  :root{--accent:#c9a24c;--accent2:#ecce89}
+
+  /* --- header gradients: navy เข้มขึ้น + เส้นทองบางใต้หัว --- */
+  .pub-top{background:linear-gradient(155deg,#0a2a5f 0%,#123a7e 52%,#1a56c0 100%)}
+  .pub-top::before{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;z-index:1;background:linear-gradient(90deg,transparent,var(--accent) 18%,var(--accent2) 50%,var(--accent) 82%,transparent)}
+  .login{background:linear-gradient(155deg,#0a2a5f 0%,#123a7e 50%,#1a56c0 100%)}
+
+  /* --- eyebrow ทองเหนือหัวข้อ (เฉพาะหน้า public) --- */
+  .pub-top h1::before{content:"OSO-TDAC OPERATIONAL REPORT";display:block;font-size:12px;letter-spacing:.22em;font-weight:800;color:var(--accent2);margin-bottom:9px;text-shadow:none}
+
+  /* --- การ์ดสรุป (stat/summary): ตัวเลขใหญ่ + เส้นสีใต้ตัวเลขตามประเภท --- */
+  .sumchip{border-radius:16px;padding:16px 14px;background:linear-gradient(180deg,#ffffff,#fbfcff);box-shadow:0 6px 18px rgba(15,50,110,.06)}
+  .sumchip .n{font-size:32px;letter-spacing:-.5px}
+  .sumchip::after{content:"";display:block;height:3px;border-radius:3px;margin-top:11px;background:var(--line2)}
+  .sumchip.ok::after{background:var(--green)}
+  .sumchip.bad::after{background:var(--rose)}
+  .sumchip.warn::after{background:var(--accent)}
+  .sumchip.pct::after{background:var(--primary)}
+
+  /* --- หัว section การ์ด: badge ตัวเลขน้ำเงิน (CSS counter, ไม่แก้ HTML) --- */
+  .pub-card{counter-reset:seccard}
+  .card-h{align-items:center;gap:11px;background:linear-gradient(180deg,#fff,#f6f9ff)}
+  .card-h::before{counter-increment:seccard;content:counter(seccard);flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800;box-shadow:0 3px 8px rgba(11,47,107,.28)}
+
+  /* --- ปุ่ม primary / ปุ่มส่งรายงาน: navy เข้ม + เงาน้ำเงิน ตรงกับภาพ --- */
+  .btn.primary{background:linear-gradient(135deg,#15408a,#0b2f6b);box-shadow:0 10px 24px rgba(11,47,107,.32)}
+  .btn.primary:hover{filter:brightness(1.08);color:#fff}
+  #pubSubmit{background:linear-gradient(135deg,#164299,#0b2f6b);border-top:1px solid rgba(236,206,137,.55)}
+
+  /* --- ปุ่ม "ติ๊กทั้งหมด" เส้นทองอ่อน echo แบบ Check All ในภาพ --- */
+  .btn-all{border-color:var(--accent2)}
+  .btn-all:not(.all-checked):hover{background:#fffaf0;border-color:var(--accent);color:var(--navy)}
 </style>
 </head>
 <body>
