@@ -1,0 +1,49 @@
+name: Monthly Report (Auto Email)
+
+# ส่งรายงานรายเดือนอัตโนมัติ ตามวัน+เวลาที่ admin ตั้งในเว็บ (เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ")
+#  - ตัวจับเวลาทำงานทุกชั่วโมง แล้วมี "ด่านเช็ก" เบาๆ ก่อน
+#    ถ้ายังไม่ถึงวัน/เวลาที่ตั้งไว้ จะข้าม (ไม่เปิดเบราว์เซอร์ ไม่เปลืองเวลา)
+#  - เมื่อถึงกำหนด: เปิด Chromium จริง -> ล็อกอินบอท -> สร้าง+ส่งรายงาน (DOCX มีกราฟ)
+#  - ข้อมูล: วันที่ 1 ถึงสิ้นเดือนของเดือนก่อนหน้า
+# ⚠️ PREPRODUCTION: ปิด schedule อัตโนมัติ — เหลือเฉพาะกดรันเองไว้ทดสอบ
+#    (กันรายงานทดสอบหลุดไปหาผู้รับจริง — ต้องตั้ง secret REPORT_RECIPIENTS เป็นกล่องทดสอบเท่านั้น)
+on:
+  # schedule:
+  #   - cron: '0 * * * *'    # ปิดไว้ใน preprod — เปิดเฉพาะ production
+  workflow_dispatch: {}        # กดรันเอง = ส่งทันที (ข้ามการเช็กเวลา) ไว้ทดสอบ
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check schedule
+        id: gate
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node .github/scripts/check-schedule.mjs
+
+      - name: Install Playwright (Chromium)
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          npm init -y
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Send monthly report
+        if: steps.gate.outputs.go == 'true'
+        env:
+          # PREPROD: ต้องตั้ง repo variable APP_URL ให้ชี้หน้า Pages ของ preprod เอง (ไม่มี fallback ไป production)
+          APP_URL: ${{ vars.APP_URL }}
+          BOT_EMAIL: ${{ secrets.REPORT_BOT_EMAIL }}
+          BOT_PASSWORD: ${{ secrets.REPORT_BOT_PASSWORD }}
+          REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node .github/scripts/send-monthly-report.mjs

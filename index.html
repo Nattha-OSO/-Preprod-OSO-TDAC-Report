@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>OSO-TDAC Operational Report · ระบบรายงานการตรวจสอบระบบ TDAC</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}html,body{height:100%;margin:0;overflow-x:hidden}
+  body{font-family:'Sarabun',Inter,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit}button{border:0}
+  ::selection{background:rgba(37,99,235,.20)}
+  :root{--bg:radial-gradient(1200px 600px at 100% -10%,#d6e6ff 0%,rgba(214,230,255,0) 55%),radial-gradient(1000px 560px at -8% 112%,#e4f1ff 0%,rgba(228,241,255,0) 52%),#eef3fb;--panel:#ffffff;--panel2:#f2f7ff;--text:#15273f;--muted:#6a7d9b;--line:#e7edf7;--line2:#d4deee;--navy:#0b2f6b;--navy2:#16438f;--navy-dark:#071d49;--primary:#2563eb;--primary-d:#1749c4;--accent:#d2a850;--accent2:#eed492;--cyan:#0ea5e9;--mint:#10b9a7;--violet:#6366f1;--amber:#f59e0b;--rose:#f43f5e;--lime:#22c55e;--green:#16a34a;--radius:16px;--shadow:0 18px 46px rgba(15,50,110,.13);--shadow-sm:0 2px 12px rgba(15,50,110,.07)}
+  .login{min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:22px;position:relative;overflow-x:hidden;overflow-y:auto;background:linear-gradient(135deg,#0d2f63 0%,#143d82 46%,#1657c8 100%)}
+  .login-card{position:relative;width:420px;max-width:100%;margin:auto;background:rgba(255,255,255,.97);border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:34px 30px}
+  .login h1{font-size:22px;margin:0 0 6px;color:var(--navy);font-weight:800;line-height:1.32;text-wrap:balance}
+  .login h1 .login-sub{display:block;font-size:.62em;font-weight:600;color:#3f5a8a;margin-top:7px;line-height:1.35}
+  .muted{color:var(--muted)}.mini{font-size:12px;color:var(--muted)}
+  .field{margin-bottom:14px}.label{font-size:12px;font-weight:600;color:#42577a;margin-bottom:6px;display:block}
+  .input,select,textarea{width:100%;min-height:42px;border:1px solid var(--line2);background:#fff;color:var(--text);border-radius:10px;outline:0;padding:10px 13px;transition:.15s}
+  textarea{min-height:96px;resize:vertical;line-height:1.6}
+  .input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+  .hidden{display:none!important}.search{flex:1 1 240px;min-width:200px;width:auto}
+  .app{height:100vh;display:none;overflow:hidden}.app.ready{display:flex}
+  .side{width:268px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-dark) 100%);display:flex;flex-direction:column;color:#dce7fa}
+  .brand{min-height:78px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:9px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.10)}
+  .brand-logos{display:flex;gap:8px;align-items:center}
+  .brand-chip{background:transparent;border-radius:7px;padding:0;height:36px;display:flex;align-items:center;overflow:hidden}
+  .brand-logo{height:34px;width:auto;display:block;border-radius:6px}
+  .login-logos{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .login-logo-card{background:transparent;border-radius:12px;padding:0;height:auto;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 8px 20px rgba(4,16,40,.22)}
+  .login-logo-card img{height:54px;width:auto;display:block;border-radius:10px}
+  .brand-title{font-size:14px;margin:0;color:#fff;font-weight:800;line-height:1.2;letter-spacing:.2px}
+  .side .mini,.side-foot .mini{color:#9fb6db}
+  .nav{padding:14px 12px;flex:1;overflow:auto}
+  .nav-title{font-size:10px;color:#7e97c4;text-transform:uppercase;letter-spacing:.12em;padding:14px 10px 8px;font-weight:700}
+  .nav button{width:100%;height:42px;border-radius:10px;background:transparent;color:#b8c9e6;display:flex;align-items:center;gap:10px;padding:0 13px;text-align:left;cursor:pointer;margin-bottom:4px;font-size:13.5px;font-weight:500;transition:.15s;position:relative}
+  .nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+  .nav button.active{background:rgba(37,99,235,.30);color:#fff;font-weight:600}
+  .nav button.active::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--accent)}
+  .side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.10)}
+  .side-foot #userName{color:#fff;font-weight:600;font-size:13.5px}
+  .userbox{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px}
+  .avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--cyan));color:#fff;display:grid;place-items:center;font-weight:800}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+  .top{height:66px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.85);position:sticky;top:0;z-index:5}
+  .top h1{font-size:18px;margin:0;color:var(--navy);font-weight:750}
+  .actions,.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.toolbar{margin-bottom:16px}
+  .content{flex:1;overflow:auto;padding:22px}
+  .btn{min-height:40px;border-radius:10px;border:1px solid var(--line2);background:#fff;color:var(--navy);display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;cursor:pointer;white-space:nowrap;font-weight:600;font-size:13px;transition:.15s;box-shadow:var(--shadow-sm)}
+  .btn:hover{background:var(--panel2);border-color:var(--primary);color:var(--primary-d)}
+  .btn.primary{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(37,99,235,.26)}
+  .btn.primary:hover{filter:brightness(1.06);color:#fff;border-color:transparent}
+  .btn.ok{background:linear-gradient(135deg,#16a34a,#15803d)!important;color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(22,163,74,.3)}
+  .btn.sm{min-height:32px;padding:5px 10px;font-size:12px}
+  .btn-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+  .shake{animation:shake .4s}
+  .btn.danger{color:#c0264a;border-color:#f3c9d4;background:#fff5f7}.btn.danger:hover{background:#fee2e8;border-color:#e88aa0;color:#a01437}
+  .btn.icon{width:38px;padding:0}.btn:disabled{opacity:.55;cursor:not-allowed}.mobile{display:none}
+  .grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.dash{grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr)}
+  .stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+  .stat{padding:17px 18px;min-height:114px;position:relative;overflow:hidden;transition:.16s}
+  .stat:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+  .stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--cyan))}
+  .stat-label{font-size:12px;color:var(--muted);font-weight:600}.stat-num{font-size:30px;line-height:1;font-weight:800;margin:10px 0 6px;color:var(--navy)}
+  .panel{padding:18px}.panel-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;align-items:flex-start}.panel-title{font-weight:750;font-size:15px;color:var(--navy)}
+  .exec{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px;margin-bottom:16px}
+  .exec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .exec-item{border:1px solid var(--line);background:linear-gradient(160deg,#ffffff,var(--panel2));border-radius:14px;padding:15px;min-height:88px;transition:.16s}.exec-item:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}.exec-item b{display:block;margin-bottom:8px;color:var(--navy);font-size:13px}
+  .next-steps{display:grid;gap:9px}
+  .step{display:grid;grid-template-columns:28px 1fr;gap:11px;align-items:start;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:11px 12px;line-height:1.55}
+  .step-num{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--navy),var(--primary));color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px}
+  .bar{height:8px;border-radius:999px;background:#e9eef6;overflow:hidden}.fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--mint))}
+  .rank{display:grid;gap:11px}.rank-row{display:grid;grid-template-columns:1fr 64px;gap:12px;align-items:center}.rank-name{font-weight:650}.rank-meta{font-size:12px;color:var(--muted);margin-top:2px}.score{text-align:right;font-weight:800;color:var(--navy)}
+  .tag{display:inline-flex;align-items:center;border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:700}
+  .excellent{background:#dcfce7;color:#15803d}.good{background:#ccfbf1;color:#0f766e}.fair{background:#fef3c7;color:#b45309}.weak{background:#ffe7d3;color:#c2410c}.critical{background:#fee2e2;color:#b91c1c}.neutral{background:#eef2f8;color:#3f5170}
+  .insight{display:grid;gap:10px}.insight-card{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:13px;line-height:1.6}.insight-card b{display:block;margin-bottom:5px;color:var(--navy)}
+  table{width:100%;border-collapse:collapse;min-width:760px}
+  .table-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:auto;background:var(--panel);box-shadow:var(--shadow-sm)}
+  thead{position:sticky;top:0;background:#e8f0fc;z-index:2}
+  th,td{padding:11px 13px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--navy);white-space:nowrap;font-weight:700}
+  tbody tr:hover td{background:#f3f7fd}
+  .comment{max-width:420px;color:#3a4a63;line-height:1.55}.nowrap{white-space:nowrap}
+  .empty,.loading{text-align:center;color:var(--muted);padding:54px 18px}
+  .spinner{width:30px;height:30px;border:3px solid #dbe4f1;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}@keyframes spin{to{transform:rotate(360deg)}}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(8,20,44,.55);z-index:30;align-items:center;justify-content:center;padding:18px}.overlay.open{display:flex}
+  .modal{width:880px;max-width:96vw;max-height:92vh;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(4,16,40,.4);display:flex;flex-direction:column;overflow:hidden}
+  .modal.small{width:560px}
+  .modal-head,.modal-foot{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.modal-head{background:var(--panel2)}
+  .modal-foot{border-bottom:0;border-top:1px solid var(--line);justify-content:flex-end;background:var(--panel2)}
+  .modal-title{font-weight:800;font-size:16px;color:var(--navy)}.modal-body{padding:20px;overflow:auto}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .kpi-line{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.kpi-line span{color:var(--muted)}.kpi-line b{color:var(--navy)}
+  .dir-add{display:flex;gap:8px;margin-bottom:14px}.dir-add .input{flex:1}.dir-list{display:grid;gap:8px}
+  .dir-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:10px 13px;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);z-index:80;background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;box-shadow:0 18px 40px rgba(4,16,40,.4);opacity:0;pointer-events:none;transition:.2s;font-weight:600;font-size:13px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:#9f1239}
+
+  /* ===== summary chips (readiness) ===== */
+  .sumbar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .sumchip{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;text-align:center;box-shadow:var(--shadow-sm)}
+  .sumchip .n{font-size:26px;font-weight:800;color:var(--navy);line-height:1.1}
+  .sumchip .l{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:3px}
+  .sumchip.ok .n{color:var(--green)}.sumchip.bad .n{color:var(--rose)}.sumchip.pct .n{color:var(--primary)}
+  .sumchip.warn{background:#fffbeb;border-color:#fcd34d}.sumchip.warn .n{color:#b45309}
+  .resume-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:600;line-height:1.5}
+  .resume-bar .resume-actions{display:flex;gap:8px;flex-shrink:0}
+  .resume-bar .resume-actions .btn{padding:7px 15px;font-size:13px}
+  .sumchip .n.web{font-size:16px;line-height:1.4;padding:4px 0}
+  #pubSumbar{grid-template-columns:repeat(6,minmax(0,1fr))}
+  @media(max-width:600px){.sumbar{grid-template-columns:repeat(2,1fr)}#pubSumbar{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:601px) and (max-width:900px){#pubSumbar{grid-template-columns:repeat(3,1fr)}}
+
+  /* ===== kiosk / checklist table ===== */
+  .ktable{width:100%;border-collapse:collapse;min-width:560px}
+  .ktable th{background:#e8f0fc;color:var(--navy);font-size:12px;font-weight:700;padding:10px 12px;text-align:left;position:sticky;top:0}
+  .ktable td{border-bottom:1px solid var(--line);padding:9px 12px;vertical-align:middle}
+  .ktable .kid{font-weight:800;color:var(--navy);white-space:nowrap}
+  .checks{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .chk{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line2);background:#fbfcfe;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:12.5px;font-weight:700;color:#46597a;transition:.12s;user-select:none}
+  .chk:hover{border-color:var(--primary);color:var(--primary)}
+  .chk input{width:16px;height:16px;cursor:pointer;margin:0}
+  .chk.on{background:#dcfce7;border-color:#86efac;color:#15803d}
+  .btn-all{border:1px solid var(--line2);background:#fff;color:var(--navy);border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
+  .btn-all.all-checked{background:var(--green);color:#fff;border-color:transparent}
+  .btn-all:disabled{opacity:.45;cursor:not-allowed}
+  .btn-occ{border:1px solid #fcd34d;background:#fffbeb;color:#b45309;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
+  .btn-occ.on{background:#f59e0b;color:#fff;border-color:transparent}
+  .chk.dis{opacity:.4;pointer-events:none;background:#f1f5f9}
+  .recheck-time{display:inline-flex;align-items:center;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:9px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+  .remark-input{width:100%;min-height:36px;border:1px solid var(--line2);border-radius:8px;padding:6px 9px;resize:none;line-height:1.4;font-size:13px;overflow:hidden}
+  .krow.ready td{background:#f6fef9}
+  .krow.recheck td{background:#fffbeb}
+  .notice{display:flex;gap:9px;align-items:flex-start;background:#eef6ff;border:1px solid #c7e0fb;border-radius:10px;padding:11px 13px;font-size:13px;color:#1f3a5f;margin-bottom:14px;line-height:1.6}
+
+  /* ===== public page ===== */
+  .public{min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+  .pub-top{position:relative;overflow:hidden;padding:34px 20px 38px;background:linear-gradient(150deg,var(--navy) 0%,var(--navy2) 48%,var(--primary) 100%);color:#fff;box-shadow:0 12px 34px rgba(11,47,107,.28)}
+  .pub-top::after{content:'\2708';position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:120px;opacity:.06;line-height:1}
+  .pub-hero{position:relative;max-width:820px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
+  .pub-logos{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+  .pub-logo-card{background:transparent;border-radius:14px;padding:0;height:auto;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 10px 26px rgba(4,16,40,.34)}
+  .pub-logo{height:74px;width:auto;display:block;border-radius:12px}
+  .pub-top h1{margin:0;font-size:26px;font-weight:800;line-height:1.3;max-width:720px;text-shadow:0 2px 12px rgba(0,0,0,.2);text-wrap:balance}
+  .pub-top h1 .pub-sub{display:block;font-size:.6em;font-weight:600;margin-top:9px;color:#dbe9ff;letter-spacing:.3px}
+  .pub-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+  .pub-badge{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.34);border-radius:20px;padding:4px 13px;font-size:12px;font-weight:600}
+  .pub-badge.gold{background:var(--accent);border-color:var(--accent);color:#3a2e08}
+  /* ===== custom date picker (DD/MM/YYYY) ===== */
+  .datewrap{position:relative}
+  .datebtn{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;background:#fff}
+  .datephd{color:var(--text)}.datephd.ph{color:#94a3b8}
+  .datecal{margin-left:auto;font-size:17px}
+  .calpop{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:30;background:#fff;border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow);padding:12px;width:300px;max-width:92vw}
+  .calpop.show{display:block}
+  .calnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .calmy{font-weight:800;color:var(--navy);font-size:14px}
+  .calnavbtn{width:34px;height:34px;border-radius:9px;background:var(--panel2);color:var(--navy);font-size:18px;font-weight:700;cursor:pointer;line-height:1}
+  .calnavbtn:hover{background:#e3edfb}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cal-dow{text-align:center;font-size:11px;color:var(--muted);font-weight:700;padding:4px 0}
+  .cal-day{text-align:center;padding:9px 0;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text)}
+  .cal-day:hover{background:var(--panel2)}
+  .cal-day.today{outline:1.5px solid var(--primary);outline-offset:-1.5px}
+  .cal-day.sel{background:var(--primary);color:#fff}
+  .pub-guide-btn{margin-top:4px;background:#fff;color:var(--navy);border:0;border-radius:999px;padding:10px 22px;cursor:pointer;font-weight:700;font-size:14px;box-shadow:0 8px 20px rgba(4,16,40,.28);transition:.15s}
+  .pub-guide-btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(4,16,40,.34)}
+  .pub-login-top{position:absolute;top:16px;right:16px;z-index:2;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px}
+  .pub-login-top:hover{background:rgba(255,255,255,.3)}
+  .pub-wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:24px 16px}
+  .pub-card{width:880px;max-width:100%;height:max-content;background:transparent;display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:750;color:var(--navy);font-size:15px;background:linear-gradient(180deg,#fff,var(--panel2))}
+  .card-b{padding:18px}
+  .public .label{font-size:13px;color:#42577a;font-weight:600}
+  .public .input,.public select{font-size:15px;min-height:46px;border-radius:11px}
+  .req{color:var(--rose);font-weight:800;margin-left:3px}
+  .pub-thanks{text-align:center;padding:50px 20px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm)}
+  .pub-thanks .big{width:74px;height:74px;border-radius:50%;margin:0 auto 16px;background:#dcfce7;color:#15803d;font-size:40px;display:grid;place-items:center;font-weight:800}
+  .pub-thanks h2{color:var(--navy);margin:0 0 6px}
+  .pub-thanks .pub-hint{color:var(--muted)}
+  .invalidf{border-color:var(--rose)!important;box-shadow:0 0 0 3px rgba(244,63,94,.16)!important}
+
+  @media(max-width:760px){
+    .side{position:fixed;inset:0 auto 0 0;z-index:25;transform:translateX(-100%);transition:.2s;width:84vw}.side.open{transform:none}.mobile{display:inline-flex}.content{padding:16px}
+    .stats,.exec-grid,.form-grid,.sumbar{grid-template-columns:1fr}
+    .pub-top{padding:16px 16px 30px}.pub-top h1{font-size:21px}.pub-logo{height:56px}.pub-logo-card{height:auto}
+    .pub-login-top{position:static;display:flex;width:100%;justify-content:center;margin:0 0 14px;top:auto;right:auto}
+    .exec,.dash{grid-template-columns:1fr}
+    .top{padding:0 14px;height:60px}.top h1{font-size:16px}
+  }
+  @media(max-width:1100px){.stats{grid-template-columns:repeat(2,1fr)}.dash,.exec{grid-template-columns:1fr}}
+  .side-backdrop{display:none;position:fixed;inset:0;background:rgba(8,20,44,.45);z-index:24}.side-backdrop.open{display:block}
+  @media(min-width:761px){.side-backdrop{display:none!important}}
+  /* มือถือ: แปลงตาราง Kiosk/Website เป็นการ์ดแนวตั้ง — ID + ติ๊ก + ช่องหมายเหตุเต็มความกว้างด้านล่าง (ไม่เลื่อนซ้าย-ขวา) */
+  @media(max-width:640px){
+    .ktable{min-width:0;display:block}
+    .ktable thead{display:none}
+    .ktable tbody{display:block}
+    .ktable tr{display:block;border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+    .ktable tr.ready{background:#f6fef9;border-color:#bbf0cf}
+    .ktable td{display:block;border:0;padding:0}
+    .ktable .kid{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px}
+    .checks{gap:7px;margin-bottom:9px}
+    .chk{flex:1 1 28%;justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
+    .chk input{width:18px;height:18px}
+    .btn-all,.btn-occ{flex:1 1 48%;padding:10px;margin-top:2px;font-size:13px}
+    .remark-input{width:100%;font-size:14px;min-height:50px;background:#fafbfd;padding:9px 11px}
+    .remark-cell::before,.ktable td:last-child::before{content:"📝 หมายเหตุ";display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px}
+    #guideModal{padding:0}
+    #guideModal .modal{width:100%!important;height:100%!important;max-height:100%!important;border-radius:0}
+    .pub-card{gap:14px}
+    .card-h{font-size:14px;padding:13px 15px}
+    .card-b{padding:14px}
+    .sumchip .n{font-size:22px}
+  }
+  @media(max-width:420px){
+    .chk span{font-size:12px}
+    .pub-top h1{font-size:19px}
+    .pub-guide-btn{width:100%}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== แถบเตือน PREPRODUCTION (ระบบทดสอบ) — ห้ามลบใน repo preprod ===== -->
+<div id="preprodBanner" style="position:sticky;top:0;z-index:99999;background:repeating-linear-gradient(45deg,#b45309,#b45309 14px,#92400e 14px,#92400e 28px);color:#fff;text-align:center;font-weight:700;font-size:14px;padding:8px 12px;letter-spacing:.4px;box-shadow:0 2px 8px rgba(0,0,0,.35)">
+  ⚠️ PREPRODUCTION — ระบบทดสอบเท่านั้น ข้อมูลที่กรอกจะไม่ถูกนับเป็นรายงานจริง ⚠️
+</div>
+
+<!-- ===== หน้าสาธารณะ (ฟอร์มรายงาน TDAC) ===== -->
+<section id="public" class="public hidden">
+  <header class="pub-top">
+    <button class="pub-login-top" onclick="gotoLogin()">เข้าสู่ระบบ (Senior / ผู้บริหาร)</button>
+    <div class="pub-hero">
+      <div class="pub-logos">
+        <div class="pub-logo-card"><img class="pub-logo" src="assets/logo-tdac.png" alt="TDAC"></div>
+        <div class="pub-logo-card"><img class="pub-logo" src="assets/logo-somapa.png" alt="SOMAPA IT"></div>
+      </div>
+      <h1>รายงานการตรวจสอบระบบ TDAC<span class="pub-sub">Website (PC + Mobile) และ Kiosk · ท่าอากาศยานสุวรรณภูมิ (BKK)</span></h1>
+      <div class="pub-badges">
+        <span class="pub-badge">สำหรับ Onsite Support Officer (OSO)</span>
+        <span class="pub-badge">ตรวจสอบกะละ 1 ครั้ง</span>
+        <span class="pub-badge gold">IMM001–IMM020</span>
+      </div>
+      <button class="pub-guide-btn" onclick="openGuide()">📖 คู่มือการใช้งาน</button>
+    </div>
+  </header>
+  <main class="pub-wrap">
+    <div class="pub-card">
+      <div id="pubForm" style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- summary chips -->
+        <div class="sumbar" id="pubSumbar">
+          <div class="sumchip"><div class="n" id="pubChipTotal">20</div><div class="l">Kiosks Total</div></div>
+          <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">All Ready</div></div>
+          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">รอตรวจซ้ำ</div></div>
+          <div class="sumchip bad"><div class="n" id="pubChipNot">20</div><div class="l">Not Ready</div></div>
+          <div class="sumchip pct"><div class="n" id="pubChipPct">0%</div><div class="l">Readiness (รวม)</div></div>
+          <div class="sumchip pct"><div class="n" id="pubChipPctChecked">—</div><div class="l">Readiness (ตรวจได้)</div></div>
+          <div class="sumchip"><div class="n web" id="pubChipWebPc">—</div><div class="l">Website (PC)</div></div>
+          <div class="sumchip"><div class="n web" id="pubChipWebMobile">—</div><div class="l">Website (Mobile)</div></div>
+        </div>
+
+        <!-- resume draft bar (localStorage) -->
+        <div id="pubResumeBar" class="resume-bar" style="display:none"></div>
+
+        <!-- header -->
+        <div class="card">
+          <div class="card-h">📋 ข้อมูลการตรวจสอบ</div>
+          <div class="card-b">
+            <div class="form-grid">
+              <div class="field"><label class="label">วันที่ตรวจสอบ<span class="req">*</span></label>
+                <div class="datewrap" id="pubDateWrap">
+                  <button type="button" class="input datebtn" id="pubDateBtn" onclick="calToggle(event)"><span id="pubDateText" class="datephd ph">เลือกวันที่ (วว/ดด/ปปปป)</span><span class="datecal">📅</span></button>
+                  <div class="calpop" id="calPop">
+                    <div class="calnav"><button type="button" class="calnavbtn" onclick="calShift(-1)">‹</button><span class="calmy" id="calMY"></span><button type="button" class="calnavbtn" onclick="calShift(1)">›</button></div>
+                    <div class="calgrid" id="calGrid"></div>
+                  </div>
+                </div>
+                <input type="hidden" id="pubDate">
+                <div class="mini" id="pubDateFmt" style="margin-top:5px;font-weight:600;color:var(--primary-d)"></div>
+              </div>
+              <div class="field"><label class="label">รอบการตรวจสอบ<span class="req">*</span></label>
+                <select class="input" id="pubShift" onchange="onPubShiftChange()">
+                  <option value="">— เลือกรอบ —</option>
+                  <option value="IMP/D 10:00">IMP/D · 10:00 น. (กลางวัน)</option>
+                  <option value="IMP/N 22:00">IMP/N · 22:00 น. (กลางคืน)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid" style="margin-top:4px">
+              <div class="field"><label class="label">เวลาเริ่มตรวจ<span class="req">*</span></label>
+                <input type="time" class="input" id="pubStart">
+                <div class="mini" style="margin-top:4px">เติมอัตโนมัติตามรอบ (รอบ 1 = 10:00 · รอบ 2 = 22:00) แก้ไขได้</div>
+              </div>
+              <div class="field"><label class="label">ตรวจเสร็จเวลา (ถึงเวลาเท่าไหร่)</label>
+                <input type="time" class="input" id="pubEnd">
+                <div class="mini" style="margin-top:4px">เวลาที่ตรวจอุปกรณ์ครบทุกเครื่อง</div>
+              </div>
+            </div>
+            <div class="form-grid" style="margin-top:4px">
+              <div class="field"><label class="label">ชื่อเจ้าหน้าที่ Onsite Support ผู้ทำการตรวจสอบ<span class="req">*</span></label>
+                <select class="input" id="pubOfficer" onchange="fillOfficerEmail()"><option value="">— เลือกชื่อเจ้าหน้าที่ —</option></select>
+              </div>
+              <div class="field"><label class="label">อีเมลรับรายงาน DOCX (ส่งให้เจ้าหน้าที่อัตโนมัติ)</label>
+                <input type="email" class="input" id="pubEmail" placeholder="เลือกชื่อแล้วอีเมลจะเติมให้อัตโนมัติ">
+                <div class="mini" style="margin-top:4px">เมื่อส่งรายงาน ระบบจะแนบไฟล์ DOCX ส่งให้อีเมลนี้</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- kiosk checklist -->
+        <div class="card">
+          <div class="card-h">🖥️ Kiosk Checklist — IMM001–IMM020</div>
+          <div class="card-b" style="padding:0">
+            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · เครื่อง/แพลตฟอร์มที่<strong>ยังไม่พร้อม (ไม่ติ๊กครบ)</strong> ต้องระบุเหตุผลในช่อง Remark</span></div>
+            <div style="overflow:auto;padding:14px">
+              <table class="ktable">
+                <thead><tr><th style="width:96px">Kiosk ID</th><th>System / RustDesk / Network</th><th style="min-width:170px">Remark</th></tr></thead>
+                <tbody id="pubKioskBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- website / mobile -->
+        <div class="card">
+          <div class="card-h">🌐 Website / Mobile Checklist</div>
+          <div class="card-b" style="padding:0">
+            <div style="overflow:auto;padding:14px">
+              <table class="ktable">
+                <thead><tr><th style="width:150px">Platform</th><th style="width:150px">System Ready</th><th>Remark</th></tr></thead>
+                <tbody>
+                  <tr><td class="kid">Website (PC)</td>
+                    <td><label class="chk" id="lblWebPc"><input type="checkbox" id="pubWebPc" onchange="togglePubWeb(this,'lblWebPc')"><span>System Ready</span></label></td>
+                    <td><textarea class="remark-input" id="pubWebPcRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea></td></tr>
+                  <tr><td class="kid">Website (Mobile)</td>
+                    <td><label class="chk" id="lblWebMobile"><input type="checkbox" id="pubWebMobile" onchange="togglePubWeb(this,'lblWebMobile')"><span>System Ready</span></label></td>
+                    <td><textarea class="remark-input" id="pubWebMobileRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- issue log -->
+        <div class="card">
+          <div class="card-h">📝 รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ</div>
+          <div class="card-b">
+            <p class="mini" style="margin:0 0 10px;line-height:1.6">รายละเอียดการรับแจ้งปัญหา/ข้อเสนอแนะ จากเจ้าหน้าที่ ตม. ขณะตรวจสอบระบบ TDAC (Walk-in / Line)</p>
+            <textarea class="input" id="pubIssue" maxlength="1000" style="min-height:110px" placeholder="กรอกรายละเอียด เช่น การเปิด-ปิดเคส แจ้งซ่อม หรือข้อเสนอแนะ..." oninput="document.getElementById('pubIssueCount').textContent=this.value.length"></textarea>
+            <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:4px"><span id="pubIssueCount">0</span> / 1,000 ตัวอักษร</div>
+          </div>
+        </div>
+
+        <button class="btn primary" id="pubSubmit" style="min-height:50px;font-size:15px" onclick="submitPublic()">✓ ส่งรายงานการตรวจสอบ</button>
+        <div style="height:8px"></div>
+      </div>
+
+      <div id="pubThanks" class="pub-thanks hidden">
+        <div class="big">&#10003;</div>
+        <h2>บันทึกรายงานเรียบร้อย</h2>
+        <p class="pub-hint">ขอบคุณ ข้อมูลการตรวจสอบของท่านถูกบันทึกลงระบบแล้ว<br><span class="mini">หากมีเครื่องที่ "รอตรวจซ้ำ" กลับไปตรวจแล้วกด "แก้/ตรวจเพิ่มรอบนี้" เพื่ออัปเดตรายการเดิม (ไม่เกิดรายงานซ้ำ)</span></p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px">
+          <button class="btn" onclick="editThisRound()" style="min-height:46px">↩ แก้/ตรวจเพิ่มรอบนี้</button>
+          <button class="btn primary" onclick="resetPublic()" style="min-height:46px">+ ทำรายงานรอบถัดไป</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- ===== หน้าเข้าสู่ระบบ ===== -->
+<section id="login" class="login hidden">
+  <form class="login-card" onsubmit="doLogin(event)">
+    <div class="login-logos">
+      <div class="login-logo-card"><img src="assets/logo-tdac.png" alt="TDAC"></div>
+      <div class="login-logo-card"><img src="assets/logo-somapa.png" alt="SOMAPA IT"></div>
+    </div>
+    <h1>OSO-TDAC Operational Report<span class="login-sub">ระบบรายงานการตรวจสอบระบบ TDAC</span></h1>
+    <p class="muted">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
+    <div id="loginInfo" class="hidden" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
+    <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
+    <div class="field"><label class="label">Password</label>
+      <div style="position:relative">
+        <input class="input" id="loginPass" type="password" autocomplete="current-password" style="padding-right:46px">
+        <button type="button" onclick="togglePass('loginPass',this)" aria-label="แสดง/ซ่อนรหัสผ่าน" title="แสดง/ซ่อนรหัสผ่าน" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button>
+      </div>
+    </div>
+    <div id="loginError" class="hidden" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
+    <button class="btn primary" id="loginBtn" style="width:100%" type="submit">เข้าสู่ระบบ</button>
+    <button type="button" class="btn" style="width:100%;margin-top:10px;border:1px solid var(--line);box-shadow:none;color:var(--primary-d);min-height:38px;font-weight:700" onclick="showRegister()">ลงทะเบียนขอใช้งานระบบ</button>
+    <button type="button" class="btn" style="width:100%;margin-top:8px;border:0;box-shadow:none;color:var(--primary-d);min-height:34px" onclick="forgotPassword()">ลืมรหัสผ่าน?</button>
+    <button type="button" class="btn" style="width:100%;margin-top:6px" onclick="showPublic()">&larr; กลับไปหน้าฟอร์มรายงาน (เจ้าหน้าที่)</button>
+  </form>
+</section>
+
+<!-- ===== หน้าลงทะเบียนขอใช้งาน ===== -->
+<section id="register" class="login hidden">
+  <form class="login-card" onsubmit="doRegister(event)">
+    <div class="login-logos">
+      <div class="login-logo-card"><img src="assets/logo-tdac.png" alt="TDAC"></div>
+      <div class="login-logo-card"><img src="assets/logo-somapa.png" alt="SOMAPA IT"></div>
+    </div>
+    <h1>OSO-TDAC Operational Report<span class="login-sub">ลงทะเบียนขอใช้งานระบบ</span></h1>
+    <p class="muted">สำหรับ Senior / Manager</p>
+    <div id="regInfo" class="hidden" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5">หลังส่งคำขอ บัญชีจะอยู่สถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะอนุมัติ จึงเข้าสู่ระบบได้</div>
+    <div class="field"><label class="label">ชื่อ-นามสกุล (ชื่อในระบบ)</label><input class="input" id="regName" type="text" placeholder="เช่น นางสาวณัฏฐา ..."></div>
+    <div class="field"><label class="label">Email</label><input class="input" id="regEmail" type="email" autocomplete="email" placeholder="user@example.com"></div>
+    <div class="field"><label class="label">ตั้งรหัสผ่าน</label>
+      <div style="position:relative">
+        <input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="เช่น Onsite@2026" oninput="regPassStrength()" style="padding-right:46px">
+        <button type="button" id="regPassEye" onclick="toggleRegPass()" aria-label="แสดง/ซ่อนรหัสผ่าน" title="แสดง/ซ่อนรหัสผ่าน" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button>
+      </div>
+    </div>
+    <div id="regPassMeter" style="margin:-4px 0 12px;display:none">
+      <div style="height:7px;background:#e5e7eb;border-radius:5px;overflow:hidden"><div id="regPassBar" style="height:100%;width:0;border-radius:5px;transition:width .2s,background .2s"></div></div>
+      <div id="regPassText" class="mini" style="margin-top:5px;text-align:left;font-weight:600"></div>
+    </div>
+    <div class="mini" style="background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin:-4px 0 12px;line-height:1.7;text-align:left">📌 <b>ข้อกำหนดรหัสผ่าน</b><br>• อย่างน้อย <b>6 ตัวอักษร</b><br>• ต้องมีทั้ง <b>ตัวอักษร</b> และ <b>ตัวเลข</b> (มีสัญลักษณ์จะยิ่งดี)<br>• ตัวอย่าง: <code>Onsite@2026</code></div>
+    <div class="field"><label class="label">เหตุผล / หน่วยงาน (ไม่บังคับ)</label><input class="input" id="regReason" type="text" placeholder="เช่น Senior ทีม Onsite ..."></div>
+    <div id="regError" class="hidden" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
+    <button class="btn primary" id="regBtn" style="width:100%" type="submit">ส่งคำขอลงทะเบียน</button>
+    <button type="button" class="btn" style="width:100%;margin-top:8px" onclick="showLogin()">&larr; กลับไปหน้าเข้าสู่ระบบ</button>
+  </form>
+</section>
+
+<!-- ===== หน้าตั้งรหัสผ่านใหม่ ===== -->
+<section id="resetpw" class="login hidden">
+  <form class="login-card" onsubmit="submitNewPassword(event)">
+    <div class="login-logos">
+      <div class="login-logo-card"><img src="assets/logo-tdac.png" alt="TDAC"></div>
+      <div class="login-logo-card"><img src="assets/logo-somapa.png" alt="SOMAPA IT"></div>
+    </div>
+    <h1>ตั้งรหัสผ่านใหม่</h1>
+    <p class="muted">กรอกรหัสผ่านใหม่สำหรับบัญชีของคุณ</p>
+    <div class="field"><label class="label">รหัสผ่านใหม่</label>
+      <div style="position:relative">
+        <input class="input" id="newPass" type="password" autocomplete="new-password" style="padding-right:46px">
+        <button type="button" onclick="togglePass('newPass',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button>
+      </div>
+    </div>
+    <div class="field"><label class="label">ยืนยันรหัสผ่านใหม่</label>
+      <div style="position:relative">
+        <input class="input" id="newPass2" type="password" autocomplete="new-password" style="padding-right:46px">
+        <button type="button" onclick="togglePass('newPass2',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button>
+      </div>
+    </div>
+    <button class="btn primary" id="newPassBtn" style="width:100%" type="submit">บันทึกรหัสผ่านใหม่</button>
+    <button type="button" class="btn" style="width:100%;margin-top:8px" onclick="cancelReset()">ยกเลิก / กลับไปเข้าสู่ระบบ</button>
+  </form>
+</section>
+
+<!-- ===== แอป (หลังล็อกอิน) ===== -->
+<section id="app" class="app">
+  <aside class="side" id="side">
+    <div class="brand"><div class="brand-logos"><span class="brand-chip"><img class="brand-logo" src="assets/logo-tdac.png" alt="TDAC"></span><span class="brand-chip"><img class="brand-logo" src="assets/logo-somapa.png" alt="SOMAPA IT"></span></div><h2 class="brand-title">OSO-TDAC Operational Report</h2></div>
+    <nav class="nav">
+      <div class="nav-title">ติดตามผล</div>
+      <button class="active" data-view="dashboard" onclick="showView('dashboard',this)">1. แดชบอร์ด</button>
+      <button data-view="reports" onclick="showView('reports',this)">2. รายการรายงาน</button>
+      <button data-view="kiosks" onclick="showView('kiosks',this)">3. สรุปรายเครื่อง Kiosk</button>
+      <button data-view="insights" onclick="showView('insights',this)">4. วิเคราะห์ภาพรวม</button>
+      <div class="nav-title">จัดการข้อมูล</div>
+      <button data-view="directory" id="navDirectory" onclick="showView('directory',this)">จัดการรายชื่อเจ้าหน้าที่</button>
+      <button data-view="users" id="navUsers" class="hidden" onclick="showView('users',this)">จัดการผู้ใช้ระบบ (admin)</button>
+      <button data-view="perms" id="navPerms" class="hidden" onclick="showView('perms',this)">จัดการสิทธิ์ (admin)</button>
+      <button data-view="audit" id="navAudit" class="hidden" onclick="showView('audit',this)">บันทึกการใช้งานระบบ (admin)</button>
+      <button data-view="autoreport" id="navAutoReport" class="hidden" onclick="showView('autoreport',this)">ตั้งค่าส่งอีเมลอัตโนมัติ (admin)</button>
+      <div class="nav-title">Tools</div>
+      <button id="btnReportNav" onclick="openReportModal()">ส่งออกรายงาน DOCX</button>
+      <button id="btnCsvNav" onclick="exportCSV()">ส่งออก CSV</button>
+      <button onclick="refresh()">รีเฟรช</button>
+      <button onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
+      <div class="nav-title">ช่วยเหลือ</div>
+      <button data-view="help" onclick="showView('help',this)">📖 คู่มือการใช้งาน (Help)</button>
+    </nav>
+    <div class="side-foot"><div class="userbox"><div class="avatar" id="avatar">U</div><div><div id="userName">-</div><div class="mini" id="userRole">-</div></div></div><div class="mini" id="appVer" style="margin-top:8px;text-align:center;color:#7e97c4"></div></div>
+  </aside>
+  <div id="sideBackdrop" class="side-backdrop" onclick="toggleSide()"></div>
+  <main class="main">
+    <header class="top">
+      <div style="display:flex;align-items:center;gap:10px"><button class="btn icon mobile" onclick="toggleSide()">=</button><h1 id="pageTitle">แดชบอร์ด</h1></div>
+      <div class="actions"><button class="btn" id="btnReportTop" onclick="openReportModal()">รายงาน DOCX</button><button class="btn" onclick="doLogout()">ออกจากระบบ</button></div>
+    </header>
+    <section class="content" id="content"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></section>
+  </main>
+</section>
+
+<!-- ===== Modal รายละเอียดรายงาน ===== -->
+<div class="overlay" id="reportDetailModal" onclick="if(event.target===this)closeReportDetail()">
+  <div class="modal">
+    <div class="modal-head"><div><div class="modal-title" id="rdTitle">รายละเอียดรายงาน</div><div class="mini" id="rdSub">บันทึกในฐานข้อมูล Supabase</div></div><button class="btn icon" onclick="closeReportDetail()">x</button></div>
+    <div class="modal-body" id="rdBody"></div>
+    <div class="modal-foot" id="rdFoot"></div>
+  </div>
+</div>
+
+<!-- ===== Modal เลือกช่วงรายงาน DOCX ===== -->
+<div class="overlay" id="reportModal" onclick="if(event.target===this)closeReport()">
+  <div class="modal small">
+    <div class="modal-head"><div class="modal-title">สร้างรายงาน DOCX</div><button class="btn icon" onclick="closeReport()">x</button></div>
+    <div class="modal-body">
+      <div class="field"><label class="label">ประเภทรายงาน</label>
+        <select class="input" id="rptType" onchange="updateReportFields()">
+          <option value="day">รายวัน (เลือกช่วงวันที่ได้)</option>
+          <option value="month" selected>รายเดือน</option>
+          <option value="year">รายปี</option>
+        </select>
+      </div>
+      <div id="rpt_day" class="hidden"><div class="form-grid"><div class="field"><label class="label">ตั้งแต่วันที่</label><input type="date" class="input" id="rptFrom"></div><div class="field"><label class="label">ถึงวันที่</label><input type="date" class="input" id="rptTo"></div></div><div class="mini">เลือกวันเดียว = รายงานรายวัน · เลือกหลายวัน = รายงานช่วงวันที่</div></div>
+      <div id="rpt_month"><div class="field"><label class="label">เลือกเดือน</label><input type="month" class="input" id="rptMonth"></div></div>
+      <div id="rpt_year" class="hidden"><div class="field"><label class="label">เลือกปี (พ.ศ.)</label><select class="input" id="rptYear"></select></div></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <div class="field"><label class="label">ส่งทางอีเมล (DOCX) — ระบุอีเมลผู้รับ (หลายคนคั่นด้วย , )</label><input class="input" id="rptEmail" type="text" placeholder="name@example.com, name2@example.com"></div>
+      <div class="mini">กด "ดูตัวอย่าง" เพื่อตรวจก่อน แล้วค่อย "ส่งอีเมล" · ระบบแนบไฟล์ DOCX ไปในอีเมล (ดู SEND-EMAIL.md)</div>
+    </div>
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <button class="btn" onclick="closeReport()">ยกเลิก</button>
+      <button class="btn" onclick="runReport('preview')">👁 ดูตัวอย่าง</button>
+      <button class="btn" onclick="runReport('docx')">ดาวน์โหลด DOCX</button>
+      <button class="btn primary" onclick="runReport('email')">✉ ส่งอีเมล (DOCX)</button>
+    </div>
+  </div>
+</div>
+<!-- ===== Modal คู่มือการใช้งาน (สาธารณะ) ===== -->
+<div class="overlay" id="guideModal" onclick="if(event.target===this)closeGuide()">
+  <div class="modal" style="width:980px;height:92vh;max-height:92vh">
+    <div class="modal-head"><div class="modal-title">📖 คู่มือการใช้งาน OSO-TDAC Operational Report</div><button class="btn icon" onclick="closeGuide()">x</button></div>
+    <div style="flex:1;overflow:hidden;background:#f4f7fb"><iframe id="guideFrame" title="คู่มือการใช้งาน" style="width:100%;height:100%;border:0;display:block"></iframe></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js?v=12"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<script src="app.js?v=12"></script>
+</body>
+</html>
