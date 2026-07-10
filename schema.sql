@@ -70,6 +70,10 @@ create table if not exists public.report_kiosks (
 -- เผื่อตารางถูกสร้างไว้ก่อนมีคอลัมน์ใหม่ (รันซ้ำได้)
 alter table public.report_kiosks add column if not exists occupied   boolean not null default false;
 alter table public.report_kiosks add column if not exists recheck_at text;
+alter table public.report_kiosks add column if not exists remark_photos jsonb not null default '[]'::jsonb;   -- path รูปแนบในหมายเหตุ
+alter table public.reports        add column if not exists issue_photos      jsonb not null default '[]'::jsonb;  -- รูปแนบข้อเสนอแนะ
+alter table public.reports        add column if not exists web_pc_photos     jsonb not null default '[]'::jsonb;
+alter table public.reports        add column if not exists web_mobile_photos jsonb not null default '[]'::jsonb;
 create index if not exists report_kiosks_report_idx on public.report_kiosks (report_id);
 create index if not exists report_kiosks_kiosk_idx  on public.report_kiosks (kiosk_id);
 
@@ -140,13 +144,17 @@ begin
     insert into public.reports(
       report_date, shift, officer, inspect_start, inspect_end,
       web_pc_ready, web_pc_remark, web_mobile_ready, web_mobile_remark,
-      issue_log, kiosks_total, kiosks_ready, kiosks_pending, readiness_pct, submitted_by)
+      issue_log, issue_photos, web_pc_photos, web_mobile_photos,
+      kiosks_total, kiosks_ready, kiosks_pending, readiness_pct, submitted_by)
     values(
       v_date, v_shift, v_officer,
       nullif(btrim(payload->>'inspect_start'),''), nullif(btrim(payload->>'inspect_end'),''),
       coalesce((payload->>'web_pc_ready')::boolean,false),     nullif(btrim(payload->>'web_pc_remark'),''),
       coalesce((payload->>'web_mobile_ready')::boolean,false), nullif(btrim(payload->>'web_mobile_remark'),''),
       nullif(btrim(payload->>'issue_log'),''),
+      coalesce(payload->'issue_photos','[]'::jsonb),
+      coalesce(payload->'web_pc_photos','[]'::jsonb),
+      coalesce(payload->'web_mobile_photos','[]'::jsonb),
       tot, rdy, pend, v_pct, null)
     returning id into rid;
   else
@@ -158,13 +166,16 @@ begin
       web_mobile_ready=coalesce((payload->>'web_mobile_ready')::boolean,false),
       web_mobile_remark=nullif(btrim(payload->>'web_mobile_remark'),''),
       issue_log=nullif(btrim(payload->>'issue_log'),''),
+      issue_photos=coalesce(payload->'issue_photos','[]'::jsonb),
+      web_pc_photos=coalesce(payload->'web_pc_photos','[]'::jsonb),
+      web_mobile_photos=coalesce(payload->'web_mobile_photos','[]'::jsonb),
       kiosks_total=tot, kiosks_ready=rdy, kiosks_pending=pend, readiness_pct=v_pct
     where id=rid;
     delete from public.report_kiosks where report_id=rid;   -- แทนที่รายละเอียด Kiosk ทั้งชุด
   end if;
 
   for k in select * from jsonb_array_elements(coalesce(payload->'kiosks','[]'::jsonb)) loop
-    insert into public.report_kiosks(report_id, kiosk_id, system_ready, rustdesk_ready, network_ready, occupied, recheck_at, remark)
+    insert into public.report_kiosks(report_id, kiosk_id, system_ready, rustdesk_ready, network_ready, occupied, recheck_at, remark, remark_photos)
     values(
       rid, k->>'kiosk_id',
       coalesce((k->>'system_ready')::boolean,false),
@@ -172,7 +183,8 @@ begin
       coalesce((k->>'network_ready')::boolean,false),
       coalesce((k->>'occupied')::boolean,false),
       nullif(btrim(k->>'recheck_at'),''),
-      nullif(btrim(k->>'remark'),''));
+      nullif(btrim(k->>'remark'),''),
+      coalesce(k->'remark_photos','[]'::jsonb));
   end loop;
 
   return rid;

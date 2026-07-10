@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='14';
+const APP_VERSION='15';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -163,7 +163,64 @@ function kioskRowsHtml(){
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
       '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
     '</div></td>'+
-    '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea></td></tr>').join('');
+    '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('');
+}
+/* ============================================================
+   รูปภาพประกอบหมายเหตุ/ข้อเสนอแนะ (ถ่าย/แนบ → บีบขนาด → อัปขึ้น Supabase Storage)
+   photoState เก็บ path ในบัคเก็ตต่อ "scope": IMM001..IMM020 | 'web-pc' | 'web-mobile' | 'issue'
+   ============================================================ */
+const PHOTO_BUCKET='report-photos',PHOTO_MAX=3,PHOTO_MAXDIM=1280,PHOTO_QUALITY=0.72;
+let photoState={},photoReadonly=false;
+function resetPhotos(){photoState={};}
+function photoUrl(path){if(!path)return '';if(/^https?:\/\//.test(path))return path;try{return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;}catch(e){return '';}}
+function photoBox(scope,bodyId){
+  if(/^IMM/.test(scope)){const b=$(bodyId);return b?b.querySelector('.photo-box[data-kiosk="'+scope+'"]'):null;}
+  return $((/rd/.test(bodyId)?'rd':'pub')+'Photo-'+scope);
+}
+function loadImageFile(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>res(im);im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('โหลดรูปไม่ได้'));};im.src=u;});}
+async function compressImage(file){
+  const im=await loadImageFile(file);
+  let w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
+  const scale=Math.min(1,PHOTO_MAXDIM/Math.max(w,h||1));
+  w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  cv.getContext('2d').drawImage(im,0,0,w,h);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',PHOTO_QUALITY));
+  return blob||await (await fetch(cv.toDataURL('image/jpeg',PHOTO_QUALITY))).blob();
+}
+function renderPhotos(scope,bodyId){
+  const box=photoBox(scope,bodyId);if(!box)return;
+  const arr=photoState[scope]||[];
+  let h=arr.map((p,i)=>'<span class="photo-thumb"><img src="'+esc(photoUrl(p))+'" alt="รูป" onclick="window.open(this.src,\'_blank\')">'+(photoReadonly?'':'<button type="button" title="ลบรูป" onclick="removePhoto(\''+scope+'\','+i+',\''+bodyId+'\')">×</button>')+'</span>').join('');
+  if(!photoReadonly&&arr.length<PHOTO_MAX)h+='<label class="photo-add"><input type="file" accept="image/*" hidden multiple onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>📷 ถ่าย/แนบรูป</span></label>';
+  if(photoReadonly&&!arr.length)h='<span class="mini" style="color:var(--muted)">— ไม่มีรูปแนบ —</span>';
+  box.innerHTML=h;
+}
+function renderAllPhotos(bodyId){KIOSKS.forEach(id=>renderPhotos(id,bodyId));['web-pc','web-mobile','issue'].forEach(s=>renderPhotos(s,bodyId));}
+async function handlePhotoPick(input,scope,bodyId){
+  if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
+  const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
+  const arr=photoState[scope]||(photoState[scope]=[]);
+  const box=photoBox(scope,bodyId),addBtn=box&&box.querySelector('.photo-add');
+  if(addBtn){addBtn.classList.add('busy');const sp=addBtn.querySelector('span');if(sp)sp.textContent='⏳ กำลังอัปโหลด...';}
+  const datev=($('pubDate')&&$('pubDate').value)||($('rdDate')&&$('rdDate').value)||'nodate';
+  for(const f of files){
+    if(arr.length>=PHOTO_MAX){toast('แนบได้สูงสุด '+PHOTO_MAX+' รูปต่อช่อง',true);break;}
+    if(!/^image\//.test(f.type||'')){toast('ไฟล์ต้องเป็นรูปภาพ',true);continue;}
+    try{
+      const blob=await compressImage(f);
+      const path=datev+'/'+scope+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
+      const {error}=await sb.storage.from(PHOTO_BUCKET).upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});
+      if(error){toast('อัปโหลดรูปไม่สำเร็จ: '+error.message,true);continue;}
+      arr.push(path);
+    }catch(e){toast('ประมวลผลรูปไม่สำเร็จ: '+((e&&e.message)||e),true);}
+  }
+  renderPhotos(scope,bodyId);
+  if(!/rd/.test(bodyId)&&typeof scheduleDraftSave==='function')scheduleDraftSave();
+}
+function removePhoto(scope,i,bodyId){
+  const arr=photoState[scope];if(!arr)return;arr.splice(i,1);renderPhotos(scope,bodyId);
+  if(!/rd/.test(bodyId)&&typeof scheduleDraftSave==='function')scheduleDraftSave();
 }
 const OCC_REMARK='เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน) — รอตรวจซ้ำ';
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
@@ -210,6 +267,7 @@ function initPublicForm(){
   if(!$('pubDate').value)calSetDate(new Date());
   updatePubSummary();
   hookDraftInputs();
+  photoReadonly=false;resetPhotos();renderAllPhotos('pubKioskBody');
   // การกู้ร่าง (auto-restore) ย้ายไปทำหลัง loadPublicOfficers() เสร็จ (ดู restoreDraftAfterLoad)
   // เพื่อให้ dropdown รายชื่อเจ้าหน้าที่โหลดก่อน ค่า officer/อีเมลจึงติดถูกต้อง
 }
@@ -234,6 +292,7 @@ function saveDraft(){
       inspectStart:($('pubStart')&&$('pubStart').value)||'',inspectEnd:($('pubEnd')&&$('pubEnd').value)||'',
       webPc:!!($('pubWebPc')&&$('pubWebPc').checked),webPcRemark:($('pubWebPcRemark')&&$('pubWebPcRemark').value)||'',
       webMobile:!!($('pubWebMobile')&&$('pubWebMobile').checked),webMobileRemark:($('pubWebMobileRemark')&&$('pubWebMobileRemark').value)||'',
+      issuePhotos:(photoState.issue||[]).slice(),webPcPhotos:(photoState['web-pc']||[]).slice(),webMobilePhotos:(photoState['web-mobile']||[]).slice(),
       kiosks:readKiosks('pubKioskBody')};
     localStorage.setItem(DRAFT_KEY,JSON.stringify(d));
   }catch(e){}
@@ -264,7 +323,9 @@ function applyDraft(d){
   if($('pubWebPcRemark')){$('pubWebPcRemark').value=d.webPcRemark||'';autoGrow($('pubWebPcRemark'));}
   if($('pubWebMobile')){$('pubWebMobile').checked=!!d.webMobile;if($('lblWebMobile'))$('lblWebMobile').classList.toggle('on',!!d.webMobile);}
   if($('pubWebMobileRemark')){$('pubWebMobileRemark').value=d.webMobileRemark||'';autoGrow($('pubWebMobileRemark'));}
+  photoState.issue=(d.issuePhotos||[]).slice();photoState['web-pc']=(d.webPcPhotos||[]).slice();photoState['web-mobile']=(d.webMobilePhotos||[]).slice();
   setKiosks('pubKioskBody',d.kiosks||[]);
+  renderPhotos('issue','pubKioskBody');renderPhotos('web-pc','pubKioskBody');renderPhotos('web-mobile','pubKioskBody');
   updatePubSummary();
 }
 function showResumeBar(d){
@@ -343,7 +404,7 @@ function readKiosks(bodyId){
     const g=t=>{const el=body.querySelector('[data-kiosk="'+id+'"][data-type="'+t+'"]');return el;};
     const occ=!!(g('occupied')&&g('occupied').checked);
     const rc=g('recheck');
-    return {kiosk_id:id,system_ready:!occ&&!!g('system').checked,rustdesk_ready:!occ&&!!g('rustdesk').checked,network_ready:!occ&&!!g('network').checked,occupied:occ,recheck_at:(rc&&rc.value.trim())||null,remark:(g('remark').value||'').trim()||null};
+    return {kiosk_id:id,system_ready:!occ&&!!g('system').checked,rustdesk_ready:!occ&&!!g('rustdesk').checked,network_ready:!occ&&!!g('network').checked,occupied:occ,recheck_at:(rc&&rc.value.trim())||null,remark:(g('remark').value||'').trim()||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
@@ -354,6 +415,7 @@ function setKiosks(bodyId,arr){
     const flag=body.querySelector('.occ-flag[data-kiosk="'+id+'"]'),occ=!!k.occupied;if(flag)flag.checked=occ;
     applyOccupied(body,id,occ,false);   // restore สถานะ occupied โดยไม่แตะ remark ที่เก็บไว้
     setRecheck(body,id,occ?'':(k.recheck_at||''));   // เครื่องที่ยัง occupied ไม่แสดงเวลา, ที่ตรวจซ้ำแล้วแสดงเวลาเดิม
+    photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
   });
 }
 // เครื่อง "พร้อม" = ติ๊กครบ 3 และไม่ได้ occupied
@@ -449,6 +511,7 @@ async function submitPublic(){
     web_pc_ready:!!$('pubWebPc').checked,web_pc_remark:($('pubWebPcRemark').value||'').trim()||null,
     web_mobile_ready:!!$('pubWebMobile').checked,web_mobile_remark:($('pubWebMobileRemark').value||'').trim()||null,
     issue_log:($('pubIssue').value||'').trim()||null,
+    issue_photos:(photoState.issue||[]).slice(),web_pc_photos:(photoState['web-pc']||[]).slice(),web_mobile_photos:(photoState['web-mobile']||[]).slice(),
     kiosks_total:KIOSK_COUNT,kiosks_ready:ready,kiosks_pending:st.pending,readiness_pct:pct,kiosks
   };
   const btn=$('pubSubmit');btn.disabled=true;
@@ -459,7 +522,8 @@ async function submitPublic(){
   if(email){
     const disp={date,shift,officer,kiosks,webPc:report.web_pc_ready,webPcRemark:report.web_pc_remark,
       webMobile:report.web_mobile_ready,webMobileRemark:report.web_mobile_remark,issue:report.issue_log,ready,total:KIOSK_COUNT,pct,
-      pending:st.pending,checkedPct:st.checkedPct,inspectStart,inspectEnd};
+      pending:st.pending,checkedPct:st.checkedPct,inspectStart,inspectEnd,
+      issue_photos:report.issue_photos,web_pc_photos:report.web_pc_photos,web_mobile_photos:report.web_mobile_photos};
     btn.innerHTML='<span class="btn-spin"></span>กำลังสร้างไฟล์และส่งอีเมล...';
     try{
       const blob=await buildSingleReportDocxBlob(disp);
@@ -488,6 +552,7 @@ function resetPublic(){
   $('pubWebPc').checked=false;$('pubWebMobile').checked=false;$('lblWebPc').classList.remove('on');$('lblWebMobile').classList.remove('on');
   $('pubWebPcRemark').value='';$('pubWebMobileRemark').value='';
   $('pubKioskBody').innerHTML=kioskRowsHtml();
+  photoReadonly=false;resetPhotos();renderAllPhotos('pubKioskBody');
   calSetDate(new Date());
   updatePubSummary();
   $('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';window.scrollTo(0,0);
@@ -562,7 +627,8 @@ function buildReport(r,kmap){
   return {id:r.id,createdRaw:r.created_at,created:fmtDateTime(r.created_at),date:r.report_date,shift:r.shift||'',officer:r.officer||'',
     inspectStart:r.inspect_start||'',inspectEnd:r.inspect_end||'',
     webPc:!!r.web_pc_ready,webPcRemark:r.web_pc_remark||'',webMobile:!!r.web_mobile_ready,webMobileRemark:r.web_mobile_remark||'',
-    issue:r.issue_log||'',kiosks:ks,total,ready,pending,notReady:Math.max(0,total-ready-pending),pct,checkedPct,submittedBy:r.submitted_by||''};
+    issue:r.issue_log||'',issuePhotos:r.issue_photos||[],webPcPhotos:r.web_pc_photos||[],webMobilePhotos:r.web_mobile_photos||[],
+    kiosks:ks,total,ready,pending,notReady:Math.max(0,total-ready-pending),pct,checkedPct,submittedBy:r.submitted_by||''};
 }
 async function loadData(){
   const [rp,kk,of]=await Promise.all([
@@ -858,12 +924,15 @@ function openReportDetail(id){
     timelineHtml(r)+
     '<div style="overflow:auto"><table class="ktable"><thead><tr><th style="width:90px">Kiosk</th><th>System / RustDesk / Network</th><th style="min-width:150px">Remark</th></tr></thead><tbody id="rdKioskBody">'+kioskRowsHtml()+'</tbody></table></div>'+
     '<div style="overflow:auto;margin-top:12px"><table class="ktable"><thead><tr><th style="width:150px">Platform</th><th style="width:140px">System Ready</th><th>Remark</th></tr></thead><tbody>'+
-      '<tr><td class="kid">Website (PC)</td><td><label class="chk'+(r.webPc?' on':'')+'"><input type="checkbox" id="rdWebPc"'+(r.webPc?' checked':'')+dis+' onchange="this.closest(\'.chk\').classList.toggle(\'on\',this.checked)"><span>System Ready</span></label></td><td><textarea class="remark-input" id="rdWebPcRemark"'+dis+' oninput="autoGrow(this)">'+esc(r.webPcRemark)+'</textarea></td></tr>'+
-      '<tr><td class="kid">Website (Mobile)</td><td><label class="chk'+(r.webMobile?' on':'')+'"><input type="checkbox" id="rdWebMobile"'+(r.webMobile?' checked':'')+dis+' onchange="this.closest(\'.chk\').classList.toggle(\'on\',this.checked)"><span>System Ready</span></label></td><td><textarea class="remark-input" id="rdWebMobileRemark"'+dis+' oninput="autoGrow(this)">'+esc(r.webMobileRemark)+'</textarea></td></tr>'+
+      '<tr><td class="kid">Website (PC)</td><td><label class="chk'+(r.webPc?' on':'')+'"><input type="checkbox" id="rdWebPc"'+(r.webPc?' checked':'')+dis+' onchange="this.closest(\'.chk\').classList.toggle(\'on\',this.checked)"><span>System Ready</span></label></td><td><textarea class="remark-input" id="rdWebPcRemark"'+dis+' oninput="autoGrow(this)">'+esc(r.webPcRemark)+'</textarea><div class="photo-box" id="rdPhoto-web-pc"></div></td></tr>'+
+      '<tr><td class="kid">Website (Mobile)</td><td><label class="chk'+(r.webMobile?' on':'')+'"><input type="checkbox" id="rdWebMobile"'+(r.webMobile?' checked':'')+dis+' onchange="this.closest(\'.chk\').classList.toggle(\'on\',this.checked)"><span>System Ready</span></label></td><td><textarea class="remark-input" id="rdWebMobileRemark"'+dis+' oninput="autoGrow(this)">'+esc(r.webMobileRemark)+'</textarea><div class="photo-box" id="rdPhoto-web-mobile"></div></td></tr>'+
     '</tbody></table></div>'+
-    '<div class="field" style="margin-top:14px"><label class="label">ปัญหา / ข้อเสนอแนะ</label><textarea class="input" id="rdIssue"'+dis+' style="min-height:90px">'+esc(r.issue)+'</textarea></div>';
+    '<div class="field" style="margin-top:14px"><label class="label">ปัญหา / ข้อเสนอแนะ</label><textarea class="input" id="rdIssue"'+dis+' style="min-height:90px">'+esc(r.issue)+'</textarea><div class="photo-box" id="rdPhoto-issue"></div></div>';
   $('rdBody').innerHTML=b;
+  photoReadonly=!editable;resetPhotos();
+  photoState.issue=(r.issuePhotos||[]).slice();photoState['web-pc']=(r.webPcPhotos||[]).slice();photoState['web-mobile']=(r.webMobilePhotos||[]).slice();
   setKiosks('rdKioskBody',r.kiosks);
+  renderPhotos('issue','rdKioskBody');renderPhotos('web-pc','rdKioskBody');renderPhotos('web-mobile','rdKioskBody');
   if(!editable)$('rdKioskBody').querySelectorAll('input,textarea,button').forEach(el=>{if(el.tagName==='BUTTON')el.style.display='none';else el.disabled=true;});
   let foot='<button class="btn" onclick="closeReportDetail()">ปิด</button>';
   if(can('delete_report'))foot='<button class="btn danger" onclick="deleteReport('+r.id+',true)">ลบรายงาน</button>'+foot;
@@ -883,6 +952,7 @@ async function saveReportDetail(){
     web_pc_ready:!!$('rdWebPc').checked,web_pc_remark:($('rdWebPcRemark').value||'').trim()||null,
     web_mobile_ready:!!$('rdWebMobile').checked,web_mobile_remark:($('rdWebMobileRemark').value||'').trim()||null,
     issue_log:($('rdIssue').value||'').trim()||null,
+    issue_photos:(photoState.issue||[]).slice(),web_pc_photos:(photoState['web-pc']||[]).slice(),web_mobile_photos:(photoState['web-mobile']||[]).slice(),
     kiosks_total:KIOSK_COUNT,kiosks_ready:st.ready,kiosks_pending:st.pending,readiness_pct:st.pct};
   const {error}=await sb.from('reports').update(upd).eq('id',detailId);
   if(error){$('rdSaveBtn').disabled=false;return toast('บันทึกไม่สำเร็จ: '+error.message,true);}
@@ -1057,6 +1127,28 @@ function dKvTable(pairs,w1,w2){
     '<w:tc><w:tcPr><w:tcW w:w="'+w2+'" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'+dCellPar(p[1],{sz:20,color:'1f2937'})+'</w:tc></w:tr>').join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+(w1+w2)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr><w:tblGrid><w:gridCol w:w="'+w1+'"/><w:gridCol w:w="'+w2+'"/></w:tblGrid>'+trs+'</w:tbl>'+dPar('',{after:80});
 }
+// ดึงรูปจาก URL เป็นไบต์ + ขนาดจริง (สำหรับฝังใน DOCX) — คืน null ถ้าล้มเหลว (ไม่ทำให้ DOCX พัง)
+async function fetchDocxImage(url){
+  try{
+    const resp=await fetch(url);if(!resp.ok)return null;
+    const blob=await resp.blob();const bytes=new Uint8Array(await blob.arrayBuffer());
+    const dim=await new Promise(res=>{const u=URL.createObjectURL(blob);const im=new Image();im.onload=()=>{res({w:im.naturalWidth||320,h:im.naturalHeight||240});URL.revokeObjectURL(u);};im.onerror=()=>{res({w:320,h:240});URL.revokeObjectURL(u);};im.src=u;});
+    return {bytes,w:dim.w,h:dim.h};
+  }catch(e){return null;}
+}
+// รวบรวม path รูปทุกช่องจากออบเจ็กต์รายงาน → [{label, path}]
+function collectReportPhotos(r){
+  const out=[],push=(label,arr)=>{(arr||[]).forEach(p=>{if(p)out.push({label,path:p});});};
+  push('ข้อเสนอแนะ / ปัญหา', r.issue_photos||r.issuePhotos);
+  push('Website (PC)', r.web_pc_photos||r.webPcPhotos);
+  push('Website (Mobile)', r.web_mobile_photos||r.webMobilePhotos);
+  (r.kiosks||[]).forEach(k=>push((k.kiosk_id||'Kiosk')+' — หมายเหตุ', k.remark_photos));
+  return out;
+}
+// XML รูปภาพ inline ขนาด cx,cy (EMU)
+function dPhotoXml(rid,cx,cy,pid,name){
+  return '<w:p><w:pPr><w:spacing w:before="20" w:after="80"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+pid+'" name="'+name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+pid+'" name="'+name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+rid+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+}
 // DOCX รายงานการตรวจสอบ 1 ฉบับ (สำหรับส่งอีเมลให้เจ้าหน้าที่ OSO จากฟอร์มสาธารณะ) — รูปแบบทางการ พอดี A4
 async function buildSingleReportDocxBlob(r){
   if(typeof JSZip==='undefined'){toast('โหลด JSZip ไม่สำเร็จ',true);return null;}
@@ -1107,16 +1199,32 @@ async function buildSingleReportDocxBlob(r){
     ['Website (Mobile)',r.webMobile?yes:no,r.webMobileRemark||'']],[2700,2200,5100]);
   body+=dHeading('รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ');
   body+=dPar(r.issue||'— ไม่มี —',{fill:'F4F6F9'});
+  // ---- ภาพประกอบ: ฝังรูปจาก Storage (ทั้งบล็อกอยู่ใน try/catch — ถ้าพลาดก็ออกรายงานได้โดยไม่มีรูป) ----
+  let photoMedia=[],photoRelsXml='';
+  try{
+    const photos=collectReportPhotos(r);let gallery='',n=0;
+    for(const ph of photos){
+      const img=await fetchDocxImage(photoUrl(ph.path));if(!img)continue;
+      n++;const fname='photo-'+n+'.jpg',rid='rIdPhoto'+n,pid=200+n;
+      const wpx=Math.min(img.w||320,340),hpx=Math.round((img.h||240)*(wpx/(img.w||320)));
+      gallery+=dPar(ph.label,{sz:18,bold:true,color:'0b2f6b',after:20})+dPhotoXml(rid,Math.round(wpx*9525),Math.round(Math.max(1,hpx)*9525),pid,fname);
+      photoMedia.push({name:fname,bytes:img.bytes});
+      photoRelsXml+='<Relationship Id="'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fname+'"/>';
+    }
+    if(n)body+=dHeading('ภาพประกอบ (หมายเหตุ / ข้อเสนอแนะ)')+gallery;
+  }catch(e){photoMedia=[];photoRelsXml='';}
   const hasLogo=!!(logos&&logos.tdac&&logos.somapa);
   const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="850" w:bottom="900" w:left="850"/></w:sectPr></w:body></w:document>';
-  const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+  const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
   const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
-  const drels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+D_LOGO_RELS+'</Relationships>';
+  const drels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+(hasLogo?D_LOGO_RELS:'')+photoRelsXml+'</Relationships>';
   const zip=new JSZip();
   zip.file('[Content_Types].xml',ct);
   zip.folder('_rels').file('.rels',rels);
   const wordF=zip.folder('word');wordF.file('document.xml',docXml);
-  if(hasLogo){wordF.folder('_rels').file('document.xml.rels',drels);addLogoMedia(wordF,logos);}
+  if(hasLogo||photoMedia.length)wordF.folder('_rels').file('document.xml.rels',drels);
+  if(hasLogo)addLogoMedia(wordF,logos);
+  if(photoMedia.length){const m=wordF.folder('media');photoMedia.forEach(p=>m.file(p.name,p.bytes));}
   return await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }
 // กราฟแท่ง: bars=[{label,value,color}]

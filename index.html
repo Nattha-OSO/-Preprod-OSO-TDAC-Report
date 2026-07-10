@@ -262,6 +262,17 @@
   /* --- ปุ่ม "ติ๊กทั้งหมด" เส้นทองอ่อน echo แบบ Check All ในภาพ --- */
   .btn-all{border-color:var(--accent2)}
   .btn-all:not(.all-checked):hover{background:#fffaf0;border-color:var(--accent);color:var(--navy)}
+
+  /* ===== ถ่าย/แนบรูปภาพ (หมายเหตุ + ข้อเสนอแนะ) ===== */
+  .photo-box{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+  .photo-thumb{position:relative;width:64px;height:64px;border-radius:9px;overflow:hidden;border:1px solid var(--line2);background:#eef2f7;flex:0 0 auto}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+  .photo-thumb button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(15,23,42,.72);color:#fff;font-size:14px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0;border:0}
+  .photo-thumb button:hover{background:#dc2626}
+  .photo-add{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1.5px dashed var(--line2);border-radius:9px;color:var(--navy);font-size:12.5px;font-weight:700;cursor:pointer;background:#fbfcfe;white-space:nowrap;transition:.12s}
+  .photo-add:hover{border-color:var(--primary);color:var(--primary);background:#f2f7ff}
+  .photo-add.busy{opacity:.55;pointer-events:none}
+  @media(max-width:640px){.photo-thumb{width:58px;height:58px}.photo-add{height:40px;font-size:13px}}
 </style>
 </head>
 <body>
@@ -378,10 +389,10 @@
                 <tbody>
                   <tr><td class="kid">Website (PC)</td>
                     <td><label class="chk" id="lblWebPc"><input type="checkbox" id="pubWebPc" onchange="togglePubWeb(this,'lblWebPc')"><span>System Ready</span></label></td>
-                    <td><textarea class="remark-input" id="pubWebPcRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea></td></tr>
+                    <td><textarea class="remark-input" id="pubWebPcRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea><div class="photo-box" id="pubPhoto-web-pc"></div></td></tr>
                   <tr><td class="kid">Website (Mobile)</td>
                     <td><label class="chk" id="lblWebMobile"><input type="checkbox" id="pubWebMobile" onchange="togglePubWeb(this,'lblWebMobile')"><span>System Ready</span></label></td>
-                    <td><textarea class="remark-input" id="pubWebMobileRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea></td></tr>
+                    <td><textarea class="remark-input" id="pubWebMobileRemark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove('invalidf')"></textarea><div class="photo-box" id="pubPhoto-web-mobile"></div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -395,6 +406,7 @@
             <p class="mini" style="margin:0 0 10px;line-height:1.6">รายละเอียดการรับแจ้งปัญหา/ข้อเสนอแนะ จากเจ้าหน้าที่ ตม. ขณะตรวจสอบระบบ TDAC (Walk-in / Line)</p>
             <textarea class="input" id="pubIssue" maxlength="1000" style="min-height:110px" placeholder="กรอกรายละเอียด เช่น การเปิด-ปิดเคส แจ้งซ่อม หรือข้อเสนอแนะ..." oninput="document.getElementById('pubIssueCount').textContent=this.value.length"></textarea>
             <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:4px"><span id="pubIssueCount">0</span> / 1,000 ตัวอักษร</div>
+            <div class="photo-box" id="pubPhoto-issue"></div>
           </div>
         </div>
 
@@ -577,9 +589,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=14"></script>
+<script src="config.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
