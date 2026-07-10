@@ -309,4 +309,4 @@ create policy "req admin all" on public.access_requests for all to authenticated
 -- ============================================================
 update auth.users
   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
-  where email = 'CHANGE_ME_PREPROD_ADMIN@example.com';  -- PREPROD: ใส่อีเมล admin สำหรับทดสอบ (แนะนำไม่ใช้บัญชีเดียวกับ production)
+  where email = 'ajjojan@gmail.com';  -- PREPROD: admin ทดสอบ (คนละบัญชีกับ production)
