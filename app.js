@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='12';
+const APP_VERSION='13';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -59,7 +59,7 @@ function regPassStrength(){
 }
 function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
-function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();loadPublicOfficers();}
+function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();loadPublicOfficers().then(restoreDraftAfterLoad).catch(()=>restoreDraftAfterLoad());}
 
 window.onload=async function(){
   if(!sb){showPublic();initPublicForm();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
@@ -210,7 +210,16 @@ function initPublicForm(){
   if(!$('pubDate').value)calSetDate(new Date());
   updatePubSummary();
   hookDraftInputs();
-  const d=readDraft();if(draftHasProgress(d))showResumeBar(d);
+  // การกู้ร่าง (auto-restore) ย้ายไปทำหลัง loadPublicOfficers() เสร็จ (ดู restoreDraftAfterLoad)
+  // เพื่อให้ dropdown รายชื่อเจ้าหน้าที่โหลดก่อน ค่า officer/อีเมลจึงติดถูกต้อง
+}
+// กู้ข้อมูลที่กรอกค้างไว้อัตโนมัติเมื่อเปิด/รีเฟรชหน้า — กันข้อมูลหายตอนเผลอกดรีเฟรชระหว่างตรวจ
+// เว้นช่อง "ตรวจเสร็จเวลา" (pubEnd) ให้กรอกใหม่ทุกครั้ง เพราะเป็นเวลาที่ตรวจจบจริง
+function restoreDraftAfterLoad(){
+  const d=readDraft();if(!draftHasProgress(d))return;
+  applyDraft(d);
+  if($('pubEnd'))$('pubEnd').value='';
+  showResumeBar(d);
 }
 /* ---------- ร่างในเครื่อง (localStorage) — ให้ผู้บันทึกกลับมากรอกต่อ/ตรวจซ้ำรายการเดิมได้ ----------
    ใช้ได้เพราะเป็นคนเดิม+เบราว์เซอร์เดิม: จำสถานะฟอร์มไว้ ปิด/เปิดใหม่แล้ว "ทำต่อ" ได้ */
@@ -261,8 +270,8 @@ function applyDraft(d){
 function showResumeBar(d){
   const bar=$('pubResumeBar');if(!bar)return;
   const cnt=(d.kiosks||[]).filter(k=>k.occupied).length;
-  bar.innerHTML='<span>↩️ พบรายการที่บันทึกค้างไว้'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ รอตรวจซ้ำ '+cnt+' เครื่อง':'')+'</span>'+
-    '<span class="resume-actions"><button type="button" class="btn primary" onclick="resumeDraft()">ทำต่อ</button><button type="button" class="btn" onclick="discardDraft()">เริ่มใหม่</button></span>';
+  bar.innerHTML='<span>↩️ กู้ข้อมูลที่กรอกค้างไว้ให้อัตโนมัติแล้ว'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ รอตรวจซ้ำ '+cnt+' เครื่อง':'')+' · ตรวจต่อได้เลย (ช่อง “ตรวจเสร็จเวลา” เว้นไว้ให้กรอกใหม่)</span>'+
+    '<span class="resume-actions"><button type="button" class="btn" onclick="discardDraft()">เริ่มรายงานใหม่ (ล้างข้อมูล)</button></span>';
   bar.style.display='flex';
 }
 function hideResumeBar(){const b=$('pubResumeBar');if(b)b.style.display='none';}
