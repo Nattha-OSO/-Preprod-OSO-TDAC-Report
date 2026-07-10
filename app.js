@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='15';
+const APP_VERSION='16';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -192,7 +192,9 @@ function renderPhotos(scope,bodyId){
   const box=photoBox(scope,bodyId);if(!box)return;
   const arr=photoState[scope]||[];
   let h=arr.map((p,i)=>'<span class="photo-thumb"><img src="'+esc(photoUrl(p))+'" alt="รูป" onclick="window.open(this.src,\'_blank\')">'+(photoReadonly?'':'<button type="button" title="ลบรูป" onclick="removePhoto(\''+scope+'\','+i+',\''+bodyId+'\')">×</button>')+'</span>').join('');
-  if(!photoReadonly&&arr.length<PHOTO_MAX)h+='<label class="photo-add"><input type="file" accept="image/*" hidden multiple onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>📷 ถ่าย/แนบรูป</span></label>';
+  if(!photoReadonly&&arr.length<PHOTO_MAX)h+=
+    '<label class="photo-add"><input type="file" accept="image/*" capture="environment" hidden onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>📷 ถ่ายรูป</span></label>'+
+    '<label class="photo-add"><input type="file" accept="image/*" hidden multiple onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>🖼️ แนบรูป</span></label>';
   if(photoReadonly&&!arr.length)h='<span class="mini" style="color:var(--muted)">— ไม่มีรูปแนบ —</span>';
   box.innerHTML=h;
 }
@@ -201,8 +203,9 @@ async function handlePhotoPick(input,scope,bodyId){
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
   const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
   const arr=photoState[scope]||(photoState[scope]=[]);
-  const box=photoBox(scope,bodyId),addBtn=box&&box.querySelector('.photo-add');
-  if(addBtn){addBtn.classList.add('busy');const sp=addBtn.querySelector('span');if(sp)sp.textContent='⏳ กำลังอัปโหลด...';}
+  const box=photoBox(scope,bodyId),own=input.closest('.photo-add'),sp=own&&own.querySelector('span');
+  if(box)box.querySelectorAll('.photo-add').forEach(b=>b.classList.add('busy'));
+  if(sp)sp.textContent='⏳ กำลังอัปโหลด...';
   const datev=($('pubDate')&&$('pubDate').value)||($('rdDate')&&$('rdDate').value)||'nodate';
   for(const f of files){
     if(arr.length>=PHOTO_MAX){toast('แนบได้สูงสุด '+PHOTO_MAX+' รูปต่อช่อง',true);break;}
