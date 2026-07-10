@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='13';
+const APP_VERSION='14';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -373,6 +373,42 @@ function updatePubSummary(){
   if($('pubChipPctChecked'))$('pubChipPctChecked').textContent=(s.checkedPct==null?'—':s.checkedPct+'%');
   const setWeb=(id,ok)=>{const e=$(id);if(e){e.textContent=ok?'Ready':'Not Ready';e.style.color=ok?'var(--green)':'var(--rose)';}};
   setWeb('pubChipWebPc',!!($('pubWebPc')&&$('pubWebPc').checked));setWeb('pubChipWebMobile',!!($('pubWebMobile')&&$('pubWebMobile').checked));
+}
+/* ---------- ไทม์ไลน์เวลาตรวจจริง (รวมการตรวจซ้ำ) ----------
+   "ตรวจครบทุกเครื่องจริง" = เวลาล่าสุดของ (จบรอบแรก inspect_end, ตรวจซ้ำล่าสุด recheck_at)
+   รองรับรอบกลางคืนข้ามเที่ยงคืน: เวลาที่ < เวลาเริ่ม ถือเป็นวันถัดไป (+24 ชม.) */
+function hmToMin(s){const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||'').trim());if(!m)return null;const h=+m[1],mi=+m[2];return(h>23||mi>59)?null:h*60+mi;}
+function minToHm(min){min=((Math.round(min)%1440)+1440)%1440;return pad2(Math.floor(min/60))+':'+pad2(min%60);}
+function fmtDur(min){if(min==null||min<0)return '—';const h=Math.floor(min/60),m=min%60;return(h?h+' ชม. ':'')+m+' นาที';}
+function inspectionTimeline(r){
+  const startM=hmToMin(r.inspectStart);
+  const rel=t=>{const m=hmToMin(t);if(m==null)return null;if(startM==null)return m;return m<startM?m+1440:m;};
+  const rechecks=(r.kiosks||[]).filter(k=>k.recheck_at).map(k=>({id:k.kiosk_id,at:k.recheck_at,rel:rel(k.recheck_at)})).filter(x=>x.rel!=null).sort((a,b)=>a.rel-b.rel);
+  const endRel=rel(r.inspectEnd),lastRc=rechecks.length?rechecks[rechecks.length-1].rel:null;
+  const cand=[endRel,lastRc].filter(v=>v!=null),completeRel=cand.length?Math.max.apply(null,cand):null;
+  const totalMin=(startM!=null&&completeRel!=null)?completeRel-startM:null;
+  const firstPassMin=(startM!=null&&endRel!=null)?endRel-startM:null;
+  const waitMin=(totalMin!=null&&firstPassMin!=null)?Math.max(0,totalMin-firstPassMin):(rechecks.length?null:0);
+  rechecks.forEach(x=>{x.waitMin=(endRel!=null)?Math.max(0,x.rel-endRel):null;});
+  return {start:r.inspectStart||'',firstPassEnd:r.inspectEnd||'',rechecks,
+    pendingNow:(r.kiosks||[]).filter(k=>k.occupied).length,
+    completeAt:completeRel==null?'':minToHm(completeRel),crossedMidnight:completeRel!=null&&completeRel>=1440,
+    totalMin,firstPassMin,waitMin};
+}
+// บล็อกไทม์ไลน์สำหรับ Modal (HTML)
+function timelineHtml(r){
+  const t=inspectionTimeline(r);
+  if(!t.start&&!t.firstPassEnd&&!t.rechecks.length)return '';
+  const line=(time,color,text)=>'<div style="display:flex;gap:9px;align-items:baseline"><span style="width:50px;flex:0 0 auto;font-weight:800;color:'+color+'">'+esc(time||'—')+'</span><span>'+text+'</span></div>';
+  let rows=line(t.start,'var(--navy)','เริ่มตรวจ');
+  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+((t.rechecks.length+t.pendingNow)?' · รอตรวจซ้ำ '+(t.rechecks.length+t.pendingNow)+' เครื่อง':''));
+  t.rechecks.forEach(x=>{rows+=line(x.at,'#b45309','↩ ตรวจซ้ำ '+esc(x.id)+(x.waitMin!=null?' <span class="mini">(รอ '+x.waitMin+' นาที)</span>':''));});
+  let foot='';
+  if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.pendingNow+' เครื่องรอตรวจซ้ำ — ยังตรวจไม่ครบ</div>';
+  else if(t.completeAt)foot+='<div style="margin-top:5px;color:var(--green);font-weight:800">✅ ตรวจครบทุกเครื่อง: '+t.completeAt+' น.'+(t.crossedMidnight?' (วันถัดไป)':'')+'</div>';
+  if(t.pendingNow===0&&t.totalMin!=null)foot+='<div style="font-weight:800;color:var(--navy)">⏱ ระยะเวลารวมจนตรวจครบ: '+fmtDur(t.totalMin)+'</div>';
+  if(t.firstPassMin!=null)foot+='<div class="mini">• รอบแรก (ลงมือตรวจ): '+fmtDur(t.firstPassMin)+(t.pendingNow===0&&t.waitMin?' · ช่วงรอ/ตรวจซ้ำ: '+fmtDur(t.waitMin):'')+'</div>';
+  return '<div class="notice" style="flex-direction:column;align-items:stretch;gap:5px;background:#f6f9ff;border-color:#c7e0fb;margin:6px 0 14px"><b style="color:var(--navy)">⏱ ไทม์ไลน์การตรวจสอบ (เวลาจริงรวมการตรวจซ้ำ)</b>'+rows+foot+'</div>';
 }
 let officerEmailMap={};
 async function loadPublicOfficers(){
@@ -819,6 +855,7 @@ function openReportDetail(id){
     '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)"><div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div></div><div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">Ready</div></div><div class="sumchip bad"><div class="n">'+r.notReady+'</div><div class="l">Not Ready</div></div><div class="sumchip"><div class="n" style="color:#b45309">'+(r.pending||0)+'</div><div class="l">รอตรวจซ้ำ</div></div><div class="sumchip pct"><div class="n">'+r.pct+'%</div><div class="l">Readiness</div></div><div class="sumchip pct"><div class="n">'+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div><div class="l">Readiness (ตรวจได้)</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webMobile?'var(--green)':'var(--rose)')+'">'+(r.webMobile?'Ready':'Not Ready')+'</div><div class="l">Website (Mobile)</div></div></div>'+
+    timelineHtml(r)+
     '<div style="overflow:auto"><table class="ktable"><thead><tr><th style="width:90px">Kiosk</th><th>System / RustDesk / Network</th><th style="min-width:150px">Remark</th></tr></thead><tbody id="rdKioskBody">'+kioskRowsHtml()+'</tbody></table></div>'+
     '<div style="overflow:auto;margin-top:12px"><table class="ktable"><thead><tr><th style="width:150px">Platform</th><th style="width:140px">System Ready</th><th>Remark</th></tr></thead><tbody>'+
       '<tr><td class="kid">Website (PC)</td><td><label class="chk'+(r.webPc?' on':'')+'"><input type="checkbox" id="rdWebPc"'+(r.webPc?' checked':'')+dis+' onchange="this.closest(\'.chk\').classList.toggle(\'on\',this.checked)"><span>System Ready</span></label></td><td><textarea class="remark-input" id="rdWebPcRemark"'+dis+' oninput="autoGrow(this)">'+esc(r.webPcRemark)+'</textarea></td></tr>'+
@@ -1032,22 +1069,32 @@ async function buildSingleReportDocxBlob(r){
   const pending=r.pending||0,notReady=Math.max(0,r.total-r.ready-pending);
   const checkedPct=(r.checkedPct!=null)?r.checkedPct:((r.total-pending)>0?Math.round(r.ready/(r.total-pending)*100):null);
   const tStart=r.inspectStart||'',tEnd=r.inspectEnd||'';
-  const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น.':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
-  body+=dKvTable([
+  const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น. (รอบแรก)':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
+  const TL=inspectionTimeline(r);
+  const kv=[
     ['วันที่ตรวจสอบ',dispDate(r.date)],
     ['รอบการตรวจสอบ',r.shift],
     ['ช่วงเวลาการตรวจ',timeRange],
     ['ผู้ตรวจสอบ (OSO)',r.officer],
     ['ความพร้อม Kiosk',r.pct+'%   ('+r.ready+' / '+r.total+' เครื่องพร้อมใช้งาน)'+(pending?'   ·   เฉพาะที่ตรวจได้ '+(checkedPct==null?'—':checkedPct+'%')+'   ·   รอตรวจซ้ำ '+pending+' เครื่อง':'')],
-    ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)'],
-    ['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]
-  ],3200,6800);
+    ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
+  ];
+  kv.push(['ตรวจครบทุกเครื่อง', TL.pendingNow>0?('ยังไม่ครบ — เหลือรอตรวจซ้ำ '+TL.pendingNow+' เครื่อง'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
+  if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลารวมจนตรวจครบ', fmtDur(TL.totalMin)+(TL.firstPassMin!=null?'   (รอบแรก '+fmtDur(TL.firstPassMin)+(TL.waitMin?' · รอ/ตรวจซ้ำ '+fmtDur(TL.waitMin):'')+')':'')]);
+  else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาตรวจรอบแรก', fmtDur(TL.firstPassMin)]);
+  kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
+  body+=dKvTable(kv,3200,6800);
   body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['All Ready',String(r.ready),'เครื่อง'],['รอตรวจซ้ำ',String(pending),'เครื่อง',pending?'b9770e':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['Readiness (รวม)',r.pct+'%','ready / total'],['Readiness (ตรวจได้)',(checkedPct==null?'—':checkedPct+'%'),'เฉพาะที่ตรวจ']]);
   body+=dKpiCards([
     ['Website (PC)',r.webPc?'✔':'✘',r.webPc?'System Ready':'Not Ready',r.webPc?'15803d':'c0392b'],
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
+  if(TL.rechecks.length){
+    body+=dHeading('ไทม์ไลน์การตรวจซ้ำ (เครื่องที่ไม่ว่างตอนตรวจรอบแรก)');
+    const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
+    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000]);
+  }
   body+=dHeading('Kiosk Checklist (IMM001–IMM020)');
   const krows=(r.kiosks||[]).map(k=>{const ok=k.system_ready&&k.rustdesk_ready&&k.network_ready;
     const mark=t=>k.occupied?'—':(k[t]?yes:no);
