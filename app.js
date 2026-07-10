@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='16';
+const APP_VERSION='17';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -156,7 +156,7 @@ async function changePassword(){
 function kioskRowsHtml(){
   return KIOSKS.map(id=>'<tr class="krow" data-row="'+id+'"><td class="kid">'+id+'</td>'+
     '<td><div class="checks">'+
-      SUBSYS.map(s=>'<label class="chk"><input type="checkbox" data-kiosk="'+id+'" data-type="'+s.t+'" onchange="kioskChanged(this)"><span>'+s.l+'</span></label>').join('')+
+      SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="no" onclick="cycleSub(this)" title="กดสลับ: ○ ยังไม่ตรวจ → ✓ พร้อม → ⏳ รอตรวจซ้ำ"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
       '<button type="button" class="btn-occ" data-kiosk="'+id+'" onclick="kioskToggleOccupied(this)" title="เครื่องไม่ว่างตอนไปตรวจ — รอตรวจซ้ำ">⏳ ไม่ว่าง</button>'+
       '<input type="checkbox" class="occ-flag" data-kiosk="'+id+'" data-type="occupied" hidden>'+
@@ -246,22 +246,22 @@ function kioskToggleOccupied(btn){
 }
 // ปรับ UI ของแถวตามสถานะ occupied (ล้าง/ปิด checkbox, ไฮไลต์ amber, เติม remark อัตโนมัติ)
 function applyOccupied(body,id,on,autofill){
-  const boxes=rowBoxes(body,id),btnOcc=body.querySelector('.btn-occ[data-kiosk="'+id+'"]'),
+  const chips=subChips(body,id),btnOcc=body.querySelector('.btn-occ[data-kiosk="'+id+'"]'),
     btnAll=body.querySelector('.btn-all[data-kiosk="'+id+'"]'),
     r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]'),
     tr=body.querySelector('tr[data-row="'+id+'"]');
   if(on){
-    boxes.forEach(b=>{if(b){b.checked=false;b.disabled=true;const c=b.closest('.chk');if(c){c.classList.remove('on');c.classList.add('dis');}}});
+    chips.forEach(b=>{if(b){b.dataset.state='no';b.classList.add('dis');}});
     if(btnAll)btnAll.disabled=true;
     if(autofill&&r&&!r.value.trim()){r.value=OCC_REMARK;autoGrow(r);}
     if(r)r.classList.remove('invalidf');
   }else{
-    boxes.forEach(b=>{if(b){b.disabled=false;const c=b.closest('.chk');if(c)c.classList.remove('dis');}});
+    chips.forEach(b=>{if(b)b.classList.remove('dis');});
     if(btnAll)btnAll.disabled=false;
     if(autofill&&r&&r.value.trim()===OCC_REMARK){r.value='';autoGrow(r);}
   }
   if(btnOcc){btnOcc.classList.toggle('on',on);btnOcc.textContent=on?'⏳ รอตรวจซ้ำ':'⏳ ไม่ว่าง';}
-  if(tr){tr.classList.toggle('recheck',on);if(on)tr.classList.remove('ready');}
+  if(tr){tr.classList.toggle('recheck',on);if(on){tr.classList.remove('ready');tr.classList.remove('wait');}}
   syncRowBtn(body,id);
 }
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
@@ -380,61 +380,88 @@ function updatePubDateLabel(){
 function openGuide(){const f=$('guideFrame');if(f&&!f.getAttribute('src'))f.setAttribute('src','guide.html?v='+APP_VERSION);$('guideModal').classList.add('open');}
 function closeGuide(){$('guideModal').classList.remove('open');}
 function togglePubWeb(cb,lblId){const l=$(lblId);if(l)l.classList.toggle('on',cb.checked);if(cb.checked){const r=$(lblId==='lblWebPc'?'pubWebPcRemark':'pubWebMobileRemark');if(r)r.classList.remove('invalidf');}updatePubSummary();scheduleDraftSave();}
-// อัปเดตคลาส/ปุ่ม Check All ของแถวเมื่อ checkbox เปลี่ยน
-function kioskChanged(el){
-  el.closest('.chk').classList.toggle('on',el.checked);
-  const body=el.closest('tbody'),id=el.dataset.kiosk;
+// รายการย่อยของแถว (ปุ่ม tri-state) + สถานะปัจจุบัน
+function subChips(body,id){return SUBSYS.map(s=>body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]'));}
+function subStateEl(body,id,t){const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+t+'"]');return b?(b.dataset.state||'no'):'no';}
+// กดสลับสถานะรายการย่อย: no → ok → wait → no
+function cycleSub(btn){
+  if(btn.classList.contains('dis'))return;
+  const order=['no','ok','wait'],cur=btn.dataset.state||'no',next=order[(order.indexOf(cur)+1)%3];
+  btn.dataset.state=next;
+  const body=btn.closest('tbody'),id=btn.dataset.kiosk;
+  // เปลี่ยนจาก ⏳ รอตรวจซ้ำ → ✓ พร้อม = เพิ่งกลับมาตรวจซ้ำเสร็จ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
+  if(cur==='wait'&&next==='ok'){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
   syncRowBtn(body,id);
-  // ถ้าติ๊กครบ (Ready) แล้ว ให้ปลดไฮไลต์แดงของ Remark ที่เคยบังคับ
-  if(rowBoxes(body,id).every(b=>b&&b.checked)){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
+  if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
-function rowBoxes(body,id){return SUBSYS.map(s=>body.querySelector('input[data-kiosk="'+id+'"][data-type="'+s.t+'"]'));}
 function syncRowBtn(body,id){
-  const boxes=rowBoxes(body,id),btn=body.querySelector('.btn-all[data-kiosk="'+id+'"]');
-  const all=boxes.every(b=>b&&b.checked);
-  if(btn){btn.classList.toggle('all-checked',all);btn.textContent=all?'✔ All Ready':'Check All';}
-  const tr=body.querySelector('tr[data-row="'+id+'"]');if(tr)tr.classList.toggle('ready',all);
+  const chips=subChips(body,id),btn=body.querySelector('.btn-all[data-kiosk="'+id+'"]');
+  const allOk=chips.every(b=>b&&b.dataset.state==='ok'),anyWait=chips.some(b=>b&&b.dataset.state==='wait'),anyNo=chips.some(b=>b&&b.dataset.state==='no');
+  if(btn){btn.classList.toggle('all-checked',allOk);btn.textContent=allOk?'✔ All Ready':'Check All';}
+  const tr=body.querySelector('tr[data-row="'+id+'"]');
+  if(tr){tr.classList.toggle('ready',allOk);tr.classList.toggle('wait',!allOk&&anyWait&&!anyNo);}
 }
 function kioskCheckAll(btn){
-  const body=btn.closest('tbody'),id=btn.dataset.kiosk,boxes=rowBoxes(body,id);
-  const all=boxes.every(b=>b&&b.checked);
-  boxes.forEach(b=>{if(b){b.checked=!all;b.closest('.chk').classList.toggle('on',b.checked);}});
+  const body=btn.closest('tbody'),id=btn.dataset.kiosk,chips=subChips(body,id);
+  const allOk=chips.every(b=>b&&b.dataset.state==='ok');
+  chips.forEach(b=>{if(b)b.dataset.state=allOk?'no':'ok';});
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 function readKiosks(bodyId){
   const body=$(bodyId);return KIOSKS.map(id=>{
-    const g=t=>{const el=body.querySelector('[data-kiosk="'+id+'"][data-type="'+t+'"]');return el;};
-    const occ=!!(g('occupied')&&g('occupied').checked);
-    const rc=g('recheck');
-    return {kiosk_id:id,system_ready:!occ&&!!g('system').checked,rustdesk_ready:!occ&&!!g('rustdesk').checked,network_ready:!occ&&!!g('network').checked,occupied:occ,recheck_at:(rc&&rc.value.trim())||null,remark:(g('remark').value||'').trim()||null,remark_photos:(photoState[id]||[]).slice()};
+    const occ=!!((body.querySelector('.occ-flag[data-kiosk="'+id+'"]')||{}).checked);
+    const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');
+    const st=t=>subStateEl(body,id,t);
+    const wait=occ?[]:SUBSYS.filter(s=>st(s.t)==='wait').map(s=>s.t);
+    const rem=(body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]')||{}).value||'';
+    return {kiosk_id:id,
+      system_ready:!occ&&st('system')==='ok',rustdesk_ready:!occ&&st('rustdesk')==='ok',network_ready:!occ&&st('network')==='ok',
+      occupied:occ,recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
+      remark:rem.trim()||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
   const body=$(bodyId),map={};(arr||[]).forEach(k=>map[k.kiosk_id]=k);
-  KIOSKS.forEach(id=>{const k=map[id]||{};
-    SUBSYS.forEach(s=>{const el=body.querySelector('input[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(el){el.checked=!!k[s.t+'_ready'];el.closest('.chk').classList.toggle('on',el.checked);}});
+  KIOSKS.forEach(id=>{const k=map[id]||{},wait=new Set(k.recheck_items||[]);
+    SUBSYS.forEach(s=>{const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(b)b.dataset.state=wait.has(s.t)?'wait':(k[s.t+'_ready']?'ok':'no');});
     const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=k.remark||'';
     const flag=body.querySelector('.occ-flag[data-kiosk="'+id+'"]'),occ=!!k.occupied;if(flag)flag.checked=occ;
     applyOccupied(body,id,occ,false);   // restore สถานะ occupied โดยไม่แตะ remark ที่เก็บไว้
     setRecheck(body,id,occ?'':(k.recheck_at||''));   // เครื่องที่ยัง occupied ไม่แสดงเวลา, ที่ตรวจซ้ำแล้วแสดงเวลาเดิม
     photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
+    syncRowBtn(body,id);
   });
 }
-// เครื่อง "พร้อม" = ติ๊กครบ 3 และไม่ได้ occupied
-function kioskReadyCount(arr){return (arr||[]).filter(k=>!k.occupied&&k.system_ready&&k.rustdesk_ready&&k.network_ready).length;}
+// ---- สถานะรายการย่อยจากออบเจ็กต์ kiosk (บูลีน + recheck_items) ----
+function subStateOf(k,type){if((k.recheck_items||[]).indexOf(type)>=0)return 'wait';return k[type+'_ready']?'ok':'no';}
+function kioskWaitItems(k){return k.occupied?[]:(k.recheck_items||[]).filter(t=>SUBSYS.some(s=>s.t===t));}
+function waitLabels(k){const set=new Set(kioskWaitItems(k));return SUBSYS.filter(s=>set.has(s.t)).map(s=>s.l);}
+// จัดประเภทเครื่อง: 'occupied'(ไม่ว่าง) | 'notready'(มีรายการเสีย) | 'usable_wait'(ใช้งานได้ รอตรวจบางรายการ) | 'ready'(ตรวจครบ)
+function kioskClass(k){
+  if(k.occupied)return 'occupied';
+  const st=SUBSYS.map(s=>subStateOf(k,s.t));
+  if(st.some(s=>s==='no'))return 'notready';
+  if(st.some(s=>s==='wait'))return 'usable_wait';
+  return 'ready';
+}
+// เครื่อง "พร้อมใช้งาน" = ไม่มีรายการเสีย และไม่ได้ occupied (รวมเครื่องที่ยังรอตรวจบางรายการ — ตามนโยบายนับเป็นใช้งานได้)
+function kioskReadyCount(arr){return (arr||[]).filter(k=>{const c=kioskClass(k);return c==='ready'||c==='usable_wait';}).length;}
 function kioskPendingCount(arr){return (arr||[]).filter(k=>k.occupied).length;}
-// สรุปตัวเลขความพร้อม: ready / pending(รอตรวจซ้ำ) / notReady, และ % สองแบบ
+// สรุปตัวเลขความพร้อม
 function readinessStats(arr,total){
-  const t=total||KIOSK_COUNT,ready=kioskReadyCount(arr),pending=kioskPendingCount(arr),checked=t-pending;
-  return {ready,pending,checked,notReady:Math.max(0,t-ready-pending),
-    pct:t?Math.round(ready/t*100):0,
-    checkedPct:checked>0?Math.round(ready/checked*100):null};
+  const t=total||KIOSK_COUNT;let full=0,wait=0,fail=0,occ=0;
+  (arr||[]).forEach(k=>{const c=kioskClass(k);if(c==='ready')full++;else if(c==='usable_wait')wait++;else if(c==='notready')fail++;else occ++;});
+  const usable=full+wait,checked=t-occ;
+  return {full,wait,usable,ready:usable,notReady:fail,occupied:occ,pending:occ,
+    needRecheck:occ+wait,checked,
+    pct:t?Math.round(usable/t*100):0,
+    checkedPct:checked>0?Math.round(usable/checked*100):null};
 }
 function updatePubSummary(){
   const ks=readKiosks('pubKioskBody'),s=readinessStats(ks,KIOSK_COUNT);
-  $('pubChipReady').textContent=s.ready;$('pubChipNot').textContent=s.notReady;$('pubChipPct').textContent=s.pct+'%';
-  if($('pubChipRecheck'))$('pubChipRecheck').textContent=s.pending;
+  $('pubChipReady').textContent=s.usable;$('pubChipNot').textContent=s.notReady;$('pubChipPct').textContent=s.pct+'%';
+  if($('pubChipRecheck'))$('pubChipRecheck').textContent=s.needRecheck;
   if($('pubChipPctChecked'))$('pubChipPctChecked').textContent=(s.checkedPct==null?'—':s.checkedPct+'%');
   const setWeb=(id,ok)=>{const e=$(id);if(e){e.textContent=ok?'Ready':'Not Ready';e.style.color=ok?'var(--green)':'var(--rose)';}};
   setWeb('pubChipWebPc',!!($('pubWebPc')&&$('pubWebPc').checked));setWeb('pubChipWebMobile',!!($('pubWebMobile')&&$('pubWebMobile').checked));
@@ -500,15 +527,16 @@ async function submitPublic(){
   // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่ยังไม่ติ๊กครบ (Not Ready) — ยกเว้นเครื่องที่ "รอตรวจซ้ำ" (มี remark อัตโนมัติอยู่แล้ว) ──
   document.querySelectorAll('#pubForm .remark-input.invalidf').forEach(el=>el.classList.remove('invalidf'));
   let firstBad=null;const markBad=el=>{if(el){el.classList.add('invalidf');if(!firstBad)firstBad=el;}};
-  kiosks.forEach(k=>{const okk=k.system_ready&&k.rustdesk_ready&&k.network_ready;
-    if(!k.occupied&&!okk&&!(k.remark||'').trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
+  // บังคับ Remark เฉพาะเครื่องที่มีรายการ "เสีย/ไม่พร้อม" (Not Ready) — เครื่องที่ "รอตรวจซ้ำ" (⏳) ไม่ต้องใส่
+  kiosks.forEach(k=>{
+    if(kioskClass(k)==='notready'&&!(k.remark||'').trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
   if(!$('pubWebPc').checked&&!($('pubWebPcRemark').value||'').trim())markBad($('pubWebPcRemark'));
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
-  if(firstBad){toast('รายการที่ยังไม่ติ๊ก (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
+  if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
   const inspectStart=($('pubStart').value||'').trim()||shiftStartTime(shift);
   const inspectEnd=($('pubEnd').value||'').trim()||null;
-  // ── ตรวจครบก่อนส่ง: ถ้ายังมีเครื่อง "รอตรวจซ้ำ" ให้เตือน (ส่งได้ แล้วกลับมาแก้รอบเดิมภายหลัง) ──
-  if(st.pending>0&&!confirm('ยังมีเครื่องที่ "รอตรวจซ้ำ" อีก '+st.pending+' เครื่อง (ยังตรวจไม่ครบ)\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาตรวจซ้ำแล้วส่งทับรายการเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
+  // ── ตรวจครบก่อนส่ง: ถ้ายังมีเครื่อง "รอตรวจซ้ำ" (ไม่ว่าง หรือรอตรวจบางรายการ) ให้เตือน (ส่งได้ แล้วกลับมาแก้รอบเดิมภายหลัง) ──
+  if(st.needRecheck>0&&!confirm('ยังมีเครื่องที่ "รอตรวจซ้ำ" อีก '+st.needRecheck+' เครื่อง (เข้าไม่ได้ หรือรอตรวจบางรายการ เช่น RustDesk)\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาตรวจซ้ำแล้วส่งทับรายการเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
   const report={
     report_date:date,shift,officer,inspect_start:inspectStart,inspect_end:inspectEnd,
     web_pc_ready:!!$('pubWebPc').checked,web_pc_remark:($('pubWebPcRemark').value||'').trim()||null,
@@ -661,7 +689,7 @@ function summarize(reports){
   health.forEach(h=>{h.pct=h.checks?Math.round((h.checks-h.notReady)/h.checks*100):null;});
   const problem=health.filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady);
   // เครื่อง "ค้างตรวจซ้ำ" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
-  const recheck=latest?(latest.kiosks||[]).filter(k=>k.occupied).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:k.remark||''})):[];
+  const recheck=latest?(latest.kiosks||[]).filter(k=>k.occupied||kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:(k.occupied?'เครื่องไม่ว่าง (เข้าไม่ได้)':('รอตรวจ '+waitLabels(k).join(', ')))+(k.remark?(' — '+k.remark):'')})):[];
   const shiftCounts={},officerCounts={};
   reports.forEach(r=>{shiftCounts[r.shift]=(shiftCounts[r.shift]||0)+1;officerCounts[r.officer]=(officerCounts[r.officer]||0)+1;});
   const webPcOk=reports.filter(r=>r.webPc).length,webMobileOk=reports.filter(r=>r.webMobile).length;
@@ -921,7 +949,7 @@ function openReportDetail(id){
     '<div class="field"><label class="label">ตรวจเสร็จเวลา</label><input type="time" class="input" id="rdEnd" value="'+esc(r.inspectEnd||'')+'"'+dis+'></div></div>'+
     '<div class="field"><label class="label">ชื่อเจ้าหน้าที่ผู้ตรวจสอบ</label><select class="input" id="rdOfficer"'+dis+'>'+
       [r.officer].concat((data.officers||[]).filter(n=>n!==r.officer)).map(n=>'<option value="'+esc(n)+'"'+(n===r.officer?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'+
-    '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)"><div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div></div><div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">Ready</div></div><div class="sumchip bad"><div class="n">'+r.notReady+'</div><div class="l">Not Ready</div></div><div class="sumchip"><div class="n" style="color:#b45309">'+(r.pending||0)+'</div><div class="l">รอตรวจซ้ำ</div></div><div class="sumchip pct"><div class="n">'+r.pct+'%</div><div class="l">Readiness</div></div><div class="sumchip pct"><div class="n">'+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div><div class="l">Readiness (ตรวจได้)</div></div>'+
+    '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)"><div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div></div><div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div></div><div class="sumchip bad"><div class="n">'+r.notReady+'</div><div class="l">Not Ready</div></div><div class="sumchip"><div class="n" style="color:#b45309">'+(r.pending||0)+'</div><div class="l">รอตรวจซ้ำ</div></div><div class="sumchip pct"><div class="n">'+r.pct+'%</div><div class="l">Readiness</div></div><div class="sumchip pct"><div class="n">'+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div><div class="l">Readiness (ตรวจได้)</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webMobile?'var(--green)':'var(--rose)')+'">'+(r.webMobile?'Ready':'Not Ready')+'</div><div class="l">Website (Mobile)</div></div></div>'+
     timelineHtml(r)+
@@ -1161,8 +1189,8 @@ async function buildSingleReportDocxBlob(r){
   body+=dPar('รายงานการตรวจสอบระบบ TDAC',{sz:38,bold:true,color:'0b2f6b',align:'center',after:40});
   body+=dPar('Website (PC + Mobile) และ Kiosk · Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)',{sz:18,color:'374151',align:'center',after:180});
   const webReady=(r.webPc?1:0)+(r.webMobile?1:0),webPct=Math.round(webReady/2*100);
-  const pending=r.pending||0,notReady=Math.max(0,r.total-r.ready-pending);
-  const checkedPct=(r.checkedPct!=null)?r.checkedPct:((r.total-pending)>0?Math.round(r.ready/(r.total-pending)*100):null);
+  const rst=readinessStats(r.kiosks||[],r.total||KIOSK_COUNT);
+  const pending=rst.occupied,notReady=rst.notReady,checkedPct=rst.checkedPct;
   const tStart=r.inspectStart||'',tEnd=r.inspectEnd||'';
   const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น. (รอบแรก)':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
   const TL=inspectionTimeline(r);
@@ -1171,7 +1199,7 @@ async function buildSingleReportDocxBlob(r){
     ['รอบการตรวจสอบ',r.shift],
     ['ช่วงเวลาการตรวจ',timeRange],
     ['ผู้ตรวจสอบ (OSO)',r.officer],
-    ['ความพร้อม Kiosk',r.pct+'%   ('+r.ready+' / '+r.total+' เครื่องพร้อมใช้งาน)'+(pending?'   ·   เฉพาะที่ตรวจได้ '+(checkedPct==null?'—':checkedPct+'%')+'   ·   รอตรวจซ้ำ '+pending+' เครื่อง':'')],
+    ['ความพร้อม Kiosk',rst.pct+'%   ('+rst.usable+' / '+r.total+' เครื่องพร้อมใช้งาน)'+(rst.needRecheck?'   ·   รอตรวจซ้ำ '+rst.needRecheck+' เครื่อง (เข้าไม่ได้ '+rst.occupied+' · รอตรวจบางรายการ '+rst.wait+')':'')],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
   kv.push(['ตรวจครบทุกเครื่อง', TL.pendingNow>0?('ยังไม่ครบ — เหลือรอตรวจซ้ำ '+TL.pendingNow+' เครื่อง'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
@@ -1179,7 +1207,7 @@ async function buildSingleReportDocxBlob(r){
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาตรวจรอบแรก', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
   body+=dKvTable(kv,3200,6800);
-  body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['All Ready',String(r.ready),'เครื่อง'],['รอตรวจซ้ำ',String(pending),'เครื่อง',pending?'b9770e':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['Readiness (รวม)',r.pct+'%','ready / total'],['Readiness (ตรวจได้)',(checkedPct==null?'—':checkedPct+'%'),'เฉพาะที่ตรวจ']]);
+  body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],['รอตรวจซ้ำ',String(rst.needRecheck),'เครื่อง',rst.needRecheck?'b9770e':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['Readiness (รวม)',rst.pct+'%','ใช้งานได้ / ทั้งหมด'],['Readiness (ตรวจได้)',(checkedPct==null?'—':checkedPct+'%'),'เฉพาะที่ตรวจ']]);
   body+=dKpiCards([
     ['Website (PC)',r.webPc?'✔':'✘',r.webPc?'System Ready':'Not Ready',r.webPc?'15803d':'c0392b'],
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
@@ -1191,10 +1219,13 @@ async function buildSingleReportDocxBlob(r){
     body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000]);
   }
   body+=dHeading('Kiosk Checklist (IMM001–IMM020)');
-  const krows=(r.kiosks||[]).map(k=>{const ok=k.system_ready&&k.rustdesk_ready&&k.network_ready;
-    const mark=t=>k.occupied?'—':(k[t]?yes:no);
-    const status=k.occupied?'รอตรวจซ้ำ':((ok?'Ready':'Not Ready')+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
-    return [k.kiosk_id,mark('system_ready'),mark('rustdesk_ready'),mark('network_ready'),status,k.remark||''];});
+  const krows=(r.kiosks||[]).map(k=>{const cls=kioskClass(k),wl=waitLabels(k).join(', ');
+    const mark=t=>k.occupied?'—':(subStateOf(k,t)==='wait'?'⏳':(subStateOf(k,t)==='ok'?yes:no));
+    const status=cls==='occupied'?'เครื่องไม่ว่าง (รอตรวจซ้ำ)'
+      :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
+      :cls==='usable_wait'?('พร้อมใช้งาน · รอตรวจ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
+      :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
+    return [k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),status,k.remark||''];});
   body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark']].concat(krows),[1300,1300,1500,1300,1500,3100]);
   body+=dHeading('Website / Mobile Checklist');
   body+=dTable([['Platform','System Ready','Remark'],

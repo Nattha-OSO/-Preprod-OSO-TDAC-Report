@@ -133,10 +133,21 @@
   .btn-occ{border:1px solid #fcd34d;background:#fffbeb;color:#b45309;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
   .btn-occ.on{background:#f59e0b;color:#fff;border-color:transparent}
   .chk.dis{opacity:.4;pointer-events:none;background:#f1f5f9}
+  /* ปุ่มรายการย่อย 3 สถานะ (System/RustDesk/Network): ○ ยังไม่ตรวจ · ✓ พร้อม · ⏳ รอตรวจซ้ำ */
+  .subchk{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line2);background:#fbfcfe;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:12.5px;font-weight:700;color:#46597a;transition:.12s;user-select:none}
+  .subchk::before{font-size:13px}
+  .subchk[data-state="no"]::before{content:"○";color:#94a3b8}
+  .subchk[data-state="ok"]::before{content:"✓"}
+  .subchk[data-state="wait"]::before{content:"⏳"}
+  .subchk[data-state="ok"]{background:#dcfce7;border-color:#86efac;color:#15803d}
+  .subchk[data-state="wait"]{background:#fff7e6;border-color:#fcd34d;color:#b45309}
+  .subchk:hover{border-color:var(--primary)}
+  .subchk.dis{opacity:.4;pointer-events:none;background:#f1f5f9}
   .recheck-time{display:inline-flex;align-items:center;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:9px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap}
   .remark-input{width:100%;min-height:36px;border:1px solid var(--line2);border-radius:8px;padding:6px 9px;resize:none;line-height:1.4;font-size:13px;overflow:hidden}
   .krow.ready td{background:#f6fef9}
   .krow.recheck td{background:#fffbeb}
+  .krow.wait td{background:#fffdf5}
   .notice{display:flex;gap:9px;align-items:flex-start;background:#eef6ff;border:1px solid #c7e0fb;border-radius:10px;padding:11px 13px;font-size:13px;color:#1f3a5f;margin-bottom:14px;line-height:1.6}
 
   /* ===== public page ===== */
@@ -208,7 +219,7 @@
     .ktable td{display:block;border:0;padding:0}
     .ktable .kid{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px}
     .checks{gap:7px;margin-bottom:9px}
-    .chk{flex:1 1 28%;justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
+    .chk,.subchk{flex:1 1 28%;justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
     .chk input{width:18px;height:18px}
     .btn-all,.btn-occ{flex:1 1 48%;padding:10px;margin-top:2px;font-size:13px}
     .remark-input{width:100%;font-size:14px;min-height:50px;background:#fafbfd;padding:9px 11px}
@@ -307,7 +318,7 @@
         <!-- summary chips -->
         <div class="sumbar" id="pubSumbar">
           <div class="sumchip"><div class="n" id="pubChipTotal">20</div><div class="l">Kiosks Total</div></div>
-          <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">All Ready</div></div>
+          <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">พร้อมใช้งาน</div></div>
           <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">รอตรวจซ้ำ</div></div>
           <div class="sumchip bad"><div class="n" id="pubChipNot">20</div><div class="l">Not Ready</div></div>
           <div class="sumchip pct"><div class="n" id="pubChipPct">0%</div><div class="l">Readiness (รวม)</div></div>
@@ -369,7 +380,7 @@
         <div class="card">
           <div class="card-h">🖥️ Kiosk Checklist — IMM001–IMM020</div>
           <div class="card-b" style="padding:0">
-            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · เครื่อง/แพลตฟอร์มที่<strong>ยังไม่พร้อม (ไม่ติ๊กครบ)</strong> ต้องระบุเหตุผลในช่อง Remark</span></div>
+            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · <strong>กดปุ่มรายการย่อยเพื่อสลับสถานะ:</strong> ○ ยังไม่ตรวจ → <strong style="color:#15803d">✓ พร้อม</strong> → <strong style="color:#b45309">⏳ รอตรวจซ้ำ</strong> (เช่น RustDesk เข้าไม่ได้ แต่ระบบใช้งานได้) · เครื่องที่มีรายการ<strong>ไม่พร้อม</strong>ต้องระบุเหตุผลในช่อง Remark (รายการ ⏳ รอตรวจ ไม่ต้องระบุ)</span></div>
             <div style="overflow:auto;padding:14px">
               <table class="ktable">
                 <thead><tr><th style="width:96px">Kiosk ID</th><th>System / RustDesk / Network</th><th style="min-width:170px">Remark</th></tr></thead>
@@ -589,9 +600,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=16"></script>
+<script src="config.js?v=17"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

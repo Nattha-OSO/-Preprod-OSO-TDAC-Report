@@ -71,6 +71,7 @@ create table if not exists public.report_kiosks (
 alter table public.report_kiosks add column if not exists occupied   boolean not null default false;
 alter table public.report_kiosks add column if not exists recheck_at text;
 alter table public.report_kiosks add column if not exists remark_photos jsonb not null default '[]'::jsonb;   -- path รูปแนบในหมายเหตุ
+alter table public.report_kiosks add column if not exists recheck_items jsonb not null default '[]'::jsonb;   -- รายการย่อยที่ "รอตรวจซ้ำ" เช่น ["rustdesk"]
 alter table public.reports        add column if not exists issue_photos      jsonb not null default '[]'::jsonb;  -- รูปแนบข้อเสนอแนะ
 alter table public.reports        add column if not exists web_pc_photos     jsonb not null default '[]'::jsonb;
 alter table public.reports        add column if not exists web_mobile_photos jsonb not null default '[]'::jsonb;
@@ -175,7 +176,7 @@ begin
   end if;
 
   for k in select * from jsonb_array_elements(coalesce(payload->'kiosks','[]'::jsonb)) loop
-    insert into public.report_kiosks(report_id, kiosk_id, system_ready, rustdesk_ready, network_ready, occupied, recheck_at, remark, remark_photos)
+    insert into public.report_kiosks(report_id, kiosk_id, system_ready, rustdesk_ready, network_ready, occupied, recheck_at, remark, remark_photos, recheck_items)
     values(
       rid, k->>'kiosk_id',
       coalesce((k->>'system_ready')::boolean,false),
@@ -184,7 +185,8 @@ begin
       coalesce((k->>'occupied')::boolean,false),
       nullif(btrim(k->>'recheck_at'),''),
       nullif(btrim(k->>'remark'),''),
-      coalesce(k->'remark_photos','[]'::jsonb));
+      coalesce(k->'remark_photos','[]'::jsonb),
+      coalesce(k->'recheck_items','[]'::jsonb));
   end loop;
 
   return rid;
