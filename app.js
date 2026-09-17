@@ -174,8 +174,20 @@ let photoState={},photoReadonly=false;
 // ไบต์รูปที่เพิ่งอัปโหลดในเซสชันนี้ (path -> {bytes,w,h}) — ใช้ฝังลง DOCX ตรง ๆ
 // ไม่ต้องดึงกลับจาก Storage (กันรูปหายจาก CORS / เน็ตสะดุด / ไฟล์ยังไม่พร้อมให้อ่าน)
 const photoBytes={};
-function resetPhotos(){photoState={};}
+// รูปเซสชันนี้แสดงจากไฟล์ในเครื่องทันที (path -> blob URL) ไม่ต้องรอโหลดกลับจาก Storage
+const photoPreview={};
+// รูปที่กำลังอัปโหลดอยู่ (scope -> [blob URL]) แสดงเป็นภาพจาง ๆ พร้อมวงหมุนในช่องหมายเหตุ
+let photoPending={};
+function photoCount(scope){return (photoState[scope]||[]).length+(photoPending[scope]||[]).length;}
+function dropPreview(p){const u=photoPreview[p];if(u){try{URL.revokeObjectURL(u);}catch(_){}delete photoPreview[p];}}
+function resetPhotos(){
+  Object.keys(photoPreview).forEach(dropPreview);
+  Object.keys(photoPending).forEach(s=>photoPending[s].forEach(u=>{try{URL.revokeObjectURL(u);}catch(_){}}));
+  photoState={};photoPending={};
+}
 function photoUrl(path){if(!path)return '';if(/^https?:\/\//.test(path))return path;try{return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;}catch(e){return '';}}
+// รูปที่เพิ่งถ่าย/แนบในเซสชันนี้ใช้ไฟล์ในเครื่อง (ขึ้นทันที) ที่เหลือค่อยดึงจาก Storage
+function photoSrc(path){return photoPreview[path]||photoUrl(path);}
 function photoBox(scope,bodyId){
   if(/^IMM/.test(scope)){const b=$(bodyId);return b?b.querySelector('.photo-box[data-kiosk="'+scope+'"]'):null;}
   return $((/rd/.test(bodyId)?'rd':'pub')+'Photo-'+scope);
@@ -193,26 +205,34 @@ async function compressImage(file){
 }
 function renderPhotos(scope,bodyId){
   const box=photoBox(scope,bodyId);if(!box)return;
-  const arr=photoState[scope]||[];
-  let h=arr.map((p,i)=>'<span class="photo-thumb"><img src="'+esc(photoUrl(p))+'" alt="รูป" onclick="window.open(this.src,\'_blank\')">'+(photoReadonly?'':'<button type="button" title="ลบรูป" onclick="removePhoto(\''+scope+'\','+i+',\''+bodyId+'\')">×</button>')+'</span>').join('');
-  if(!photoReadonly&&arr.length<PHOTO_MAX)h+=
-    '<label class="photo-add"><input type="file" accept="image/*" capture="environment" hidden onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>📷 ถ่ายรูป</span></label>'+
+  const arr=photoState[scope]||[],pend=photoPending[scope]||[];
+  let h=arr.map((p,i)=>'<span class="photo-thumb"><img src="'+esc(photoSrc(p))+'" alt="รูป" onclick="window.open(this.src,\'_blank\')">'+(photoReadonly?'':'<button type="button" title="ลบรูป" onclick="removePhoto(\''+scope+'\','+i+',\''+bodyId+'\')">×</button>')+'</span>').join('');
+  // รูปที่ยังอัปโหลดไม่เสร็จ — เห็นภาพทันที ไม่ต้องเดาว่ากดติดหรือยัง
+  h+=pend.map(u=>'<span class="photo-thumb up"><img src="'+esc(u)+'" alt="กำลังอัปโหลด"><span class="photo-prog"></span></span>').join('');
+  if(!photoReadonly&&arr.length+pend.length<PHOTO_MAX)h+=
+    '<button type="button" class="photo-add" onclick="openCamera(\''+scope+'\',\''+bodyId+'\')"><span>📷 ถ่ายรูป</span></button>'+
     '<label class="photo-add"><input type="file" accept="image/*" hidden multiple onchange="handlePhotoPick(this,\''+scope+'\',\''+bodyId+'\')"><span>🖼️ แนบรูป</span></label>';
   if(photoReadonly&&!arr.length)h='<span class="mini" style="color:var(--muted)">— ไม่มีรูปแนบ —</span>';
   box.innerHTML=h;
 }
 function renderAllPhotos(bodyId){KIOSKS.forEach(id=>renderPhotos(id,bodyId));['web-pc','web-mobile','issue'].forEach(s=>renderPhotos(s,bodyId));}
 async function handlePhotoPick(input,scope,bodyId){
+  const files=Array.from(input.files||[]);input.value='';
+  await addPhotos(files,scope,bodyId);
+}
+// เส้นทางเดียวของการเพิ่มรูป (ทั้งจากกล้องและจากไฟล์):
+// โชว์ตัวอย่างในช่องหมายเหตุทันที → บีบขนาด → อัปขึ้น Storage → เปลี่ยนเป็นรูปจริง
+async function addPhotos(files,scope,bodyId){
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
-  const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
+  if(!files.length)return;
   const arr=photoState[scope]||(photoState[scope]=[]);
-  const box=photoBox(scope,bodyId),own=input.closest('.photo-add'),sp=own&&own.querySelector('span');
-  if(box)box.querySelectorAll('.photo-add').forEach(b=>b.classList.add('busy'));
-  if(sp)sp.textContent='⏳ กำลังอัปโหลด...';
+  const pend=photoPending[scope]||(photoPending[scope]=[]);
   const datev=($('pubDate')&&$('pubDate').value)||($('rdDate')&&$('rdDate').value)||'nodate';
   for(const f of files){
-    if(arr.length>=PHOTO_MAX){toast('แนบได้สูงสุด '+PHOTO_MAX+' รูปต่อช่อง',true);break;}
+    if(photoCount(scope)>=PHOTO_MAX){toast('แนบได้สูงสุด '+PHOTO_MAX+' รูปต่อช่อง',true);break;}
     if(!/^image\//.test(f.type||'')){toast('ไฟล์ต้องเป็นรูปภาพ',true);continue;}
+    const ticket=URL.createObjectURL(f);
+    pend.push(ticket);renderPhotos(scope,bodyId);   // เห็นรูปทันทีตั้งแต่ยังไม่อัปเสร็จ
     try{
       const {blob,w,h}=await compressImage(f);
       const path=datev+'/'+scope+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
@@ -220,15 +240,68 @@ async function handlePhotoPick(input,scope,bodyId){
       if(error){toast('อัปโหลดรูปไม่สำเร็จ: '+error.message,true);continue;}
       // เก็บไบต์ไว้ในหน่วยความจำด้วย เพื่อให้ DOCX ฝังรูปได้แน่นอนแม้ดึงกลับจาก Storage ไม่ได้
       try{photoBytes[path]={bytes:new Uint8Array(await blob.arrayBuffer()),w,h};}catch(_){}
+      photoPreview[path]=URL.createObjectURL(blob);   // แสดงจากไฟล์ในเครื่อง ไม่ต้องรอ Storage
       arr.push(path);
-    }catch(e){toast('ประมวลผลรูปไม่สำเร็จ: '+((e&&e.message)||e),true);}
+    }catch(e){toast('ประมวลผลรูปไม่สำเร็จ: '+((e&&e.message)||e),true);
+    }finally{
+      const k=pend.indexOf(ticket);if(k>=0)pend.splice(k,1);
+      try{URL.revokeObjectURL(ticket);}catch(_){}
+      renderPhotos(scope,bodyId);
+    }
   }
   renderPhotos(scope,bodyId);
   if(!/rd/.test(bodyId)&&typeof scheduleDraftSave==='function')scheduleDraftSave();
 }
 function removePhoto(scope,i,bodyId){
-  const arr=photoState[scope];if(!arr)return;arr.splice(i,1);renderPhotos(scope,bodyId);
+  const arr=photoState[scope];if(!arr)return;
+  dropPreview(arr[i]);arr.splice(i,1);renderPhotos(scope,bodyId);
   if(!/rd/.test(bodyId)&&typeof scheduleDraftSave==='function')scheduleDraftSave();
+}
+
+/* ---------- กล้องในหน้าเว็บ: กด 📷 แล้วถ่ายได้เลย ไม่ต้องผ่านแอปกล้องของเครื่อง ---------- */
+let camStream=null,camScope='',camBody='';
+async function openCamera(scope,bodyId){
+  camScope=scope;camBody=bodyId;
+  const ov=$('cameraModal');if(!ov)return;
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))
+    return toast('เบราว์เซอร์นี้เปิดกล้องไม่ได้ — ใช้ปุ่ม 🖼️ แนบรูป แทน',true);
+  if(!window.isSecureContext)
+    return toast('เปิดกล้องได้เฉพาะหน้าเว็บแบบ https — ใช้ปุ่ม 🖼️ แนบรูป แทน',true);
+  ov.classList.add('open');
+  const hint=$('camHint'),shot=$('camShot');
+  if(hint)hint.textContent='กำลังเปิดกล้อง...';
+  if(shot)shot.disabled=true;
+  try{
+    // กล้องหลังก่อน (ใช้ถ่ายเครื่อง Kiosk) ถ้าไม่มีค่อยใช้ตัวที่เครื่องมี
+    try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920}},audio:false});}
+    catch(_){camStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}
+    const v=$('camVideo');v.srcObject=camStream;await v.play();
+    if(hint)hint.textContent='จัดภาพให้ชัด แล้วกด “ถ่ายภาพ”';
+    if(shot)shot.disabled=false;
+  }catch(e){
+    closeCamera();
+    const n=(e&&e.name)||'';
+    toast(n==='NotAllowedError'?'ไม่ได้รับอนุญาตให้ใช้กล้อง — กดอนุญาตที่แถบเบราว์เซอร์ หรือใช้ 🖼️ แนบรูป'
+      :n==='NotFoundError'?'ไม่พบกล้องบนเครื่องนี้ — ใช้ปุ่ม 🖼️ แนบรูป แทน'
+      :'เปิดกล้องไม่สำเร็จ: '+((e&&e.message)||e),true);
+  }
+}
+function closeCamera(){
+  const ov=$('cameraModal');if(ov)ov.classList.remove('open');
+  const v=$('camVideo');if(v){try{v.pause();}catch(_){}v.srcObject=null;}
+  if(camStream){camStream.getTracks().forEach(t=>{try{t.stop();}catch(_){}});camStream=null;}
+}
+async function snapPhoto(){
+  const v=$('camVideo');if(!v||!v.videoWidth)return;
+  const cv=document.createElement('canvas');
+  cv.width=v.videoWidth;cv.height=v.videoHeight;
+  cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
+  const scope=camScope,bodyId=camBody;
+  closeCamera();
+  if(!blob)return toast('ถ่ายภาพไม่สำเร็จ ลองใหม่อีกครั้ง',true);
+  const f=new File([blob],'camera-'+Date.now()+'.jpg',{type:'image/jpeg'});
+  await addPhotos([f],scope,bodyId);
 }
 const OCC_REMARK='เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน) — รอตรวจซ้ำ';
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
