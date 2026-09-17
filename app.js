@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='17';
+const APP_VERSION='18';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -171,6 +171,9 @@ function kioskRowsHtml(){
    ============================================================ */
 const PHOTO_BUCKET='report-photos',PHOTO_MAX=3,PHOTO_MAXDIM=1280,PHOTO_QUALITY=0.72;
 let photoState={},photoReadonly=false;
+// ไบต์รูปที่เพิ่งอัปโหลดในเซสชันนี้ (path -> {bytes,w,h}) — ใช้ฝังลง DOCX ตรง ๆ
+// ไม่ต้องดึงกลับจาก Storage (กันรูปหายจาก CORS / เน็ตสะดุด / ไฟล์ยังไม่พร้อมให้อ่าน)
+const photoBytes={};
 function resetPhotos(){photoState={};}
 function photoUrl(path){if(!path)return '';if(/^https?:\/\//.test(path))return path;try{return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;}catch(e){return '';}}
 function photoBox(scope,bodyId){
@@ -186,7 +189,7 @@ async function compressImage(file){
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
   cv.getContext('2d').drawImage(im,0,0,w,h);
   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',PHOTO_QUALITY));
-  return blob||await (await fetch(cv.toDataURL('image/jpeg',PHOTO_QUALITY))).blob();
+  return {blob:blob||await (await fetch(cv.toDataURL('image/jpeg',PHOTO_QUALITY))).blob(),w,h};
 }
 function renderPhotos(scope,bodyId){
   const box=photoBox(scope,bodyId);if(!box)return;
@@ -211,10 +214,12 @@ async function handlePhotoPick(input,scope,bodyId){
     if(arr.length>=PHOTO_MAX){toast('แนบได้สูงสุด '+PHOTO_MAX+' รูปต่อช่อง',true);break;}
     if(!/^image\//.test(f.type||'')){toast('ไฟล์ต้องเป็นรูปภาพ',true);continue;}
     try{
-      const blob=await compressImage(f);
+      const {blob,w,h}=await compressImage(f);
       const path=datev+'/'+scope+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
       const {error}=await sb.storage.from(PHOTO_BUCKET).upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});
       if(error){toast('อัปโหลดรูปไม่สำเร็จ: '+error.message,true);continue;}
+      // เก็บไบต์ไว้ในหน่วยความจำด้วย เพื่อให้ DOCX ฝังรูปได้แน่นอนแม้ดึงกลับจาก Storage ไม่ได้
+      try{photoBytes[path]={bytes:new Uint8Array(await blob.arrayBuffer()),w,h};}catch(_){}
       arr.push(path);
     }catch(e){toast('ประมวลผลรูปไม่สำเร็จ: '+((e&&e.message)||e),true);}
   }
@@ -1161,11 +1166,17 @@ function dKvTable(pairs,w1,w2){
 // ดึงรูปจาก URL เป็นไบต์ + ขนาดจริง (สำหรับฝังใน DOCX) — คืน null ถ้าล้มเหลว (ไม่ทำให้ DOCX พัง)
 async function fetchDocxImage(url){
   try{
-    const resp=await fetch(url);if(!resp.ok)return null;
+    const resp=await fetch(url,{mode:'cors',cache:'no-store'});if(!resp.ok)return null;
     const blob=await resp.blob();const bytes=new Uint8Array(await blob.arrayBuffer());
     const dim=await new Promise(res=>{const u=URL.createObjectURL(blob);const im=new Image();im.onload=()=>{res({w:im.naturalWidth||320,h:im.naturalHeight||240});URL.revokeObjectURL(u);};im.onerror=()=>{res({w:320,h:240});URL.revokeObjectURL(u);};im.src=u;});
     return {bytes,w:dim.w,h:dim.h};
   }catch(e){return null;}
+}
+// ไบต์รูปสำหรับฝัง DOCX: ใช้ของที่แคชไว้ตอนอัปโหลดก่อน (ชัวร์สุด) แล้วค่อย fallback ไปดึงจาก Storage
+async function docxImageFor(path){
+  const c=photoBytes[path];
+  if(c&&c.bytes&&c.bytes.length)return c;
+  return await fetchDocxImage(photoUrl(path));
 }
 // รวบรวม path รูปทุกช่องจากออบเจ็กต์รายงาน → [{label, path}]
 function collectReportPhotos(r){
@@ -1236,9 +1247,9 @@ async function buildSingleReportDocxBlob(r){
   // ---- ภาพประกอบ: ฝังรูปจาก Storage (ทั้งบล็อกอยู่ใน try/catch — ถ้าพลาดก็ออกรายงานได้โดยไม่มีรูป) ----
   let photoMedia=[],photoRelsXml='';
   try{
-    const photos=collectReportPhotos(r);let gallery='',n=0;
+    const photos=collectReportPhotos(r);let gallery='',n=0,failed=0;
     for(const ph of photos){
-      const img=await fetchDocxImage(photoUrl(ph.path));if(!img)continue;
+      const img=await docxImageFor(ph.path);if(!img){failed++;continue;}
       n++;const fname='photo-'+n+'.jpg',rid='rIdPhoto'+n,pid=200+n;
       const wpx=Math.min(img.w||320,340),hpx=Math.round((img.h||240)*(wpx/(img.w||320)));
       gallery+=dPar(ph.label,{sz:18,bold:true,color:'0b2f6b',after:20})+dPhotoXml(rid,Math.round(wpx*9525),Math.round(Math.max(1,hpx)*9525),pid,fname);
@@ -1246,7 +1257,9 @@ async function buildSingleReportDocxBlob(r){
       photoRelsXml+='<Relationship Id="'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fname+'"/>';
     }
     if(n)body+=dHeading('ภาพประกอบ (หมายเหตุ / ข้อเสนอแนะ)')+gallery;
-  }catch(e){photoMedia=[];photoRelsXml='';}
+    // เดิม: รูปหายเงียบ ๆ ไม่มีใครรู้ — ตอนนี้เตือนให้เห็นว่าแนบรูปไม่ครบ
+    if(failed)toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ '+failed+' รูป (รายงานส่งได้ แต่ไม่มีรูปครบ)',true);
+  }catch(e){photoMedia=[];photoRelsXml='';toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ (ส่งรายงานแบบไม่มีรูป)',true);}
   const hasLogo=!!(logos&&logos.tdac&&logos.somapa);
   const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="850" w:bottom="900" w:left="850"/></w:sectPr></w:body></w:document>';
   const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
