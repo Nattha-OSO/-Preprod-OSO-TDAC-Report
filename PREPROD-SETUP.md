@@ -24,6 +24,9 @@
 1. เปิด **SQL Editor** → วาง `schema.sql` ทั้งไฟล์
 2. แก้บรรทัดท้าย `CHANGE_ME_PREPROD_ADMIN@example.com` → อีเมล admin ทดสอบ → **Run**
 3. **Authentication → Users** → สร้างบัญชีอีเมลเดียวกัน → รัน SQL บรรทัดท้ายซ้ำอีกครั้ง → login ออก-เข้า 1 ครั้ง
+4. ตรวจว่ามีบัคเก็ตรูปแล้ว: **Storage** → ต้องเห็นบัคเก็ต `report-photos`
+   > ถ้าไม่มี ฟอร์มจะขึ้น **"อัปโหลดรูปไม่สำเร็จ"** ตอนถ่าย/แนบรูป และไฟล์รายงานในอีเมลจะไม่มีรูป
+   > `schema.sql` สร้างบัคเก็ตให้แล้ว — โปรเจกต์ที่ตั้งไว้ก่อนหน้านี้ให้รัน `migration-photos.sql` เพิ่มครั้งเดียว
 
 ### 3) ใส่ค่าใน `config.js`
 แทน `PASTE_PREPROD_PROJECT_REF` และ `PASTE_PREPROD_ANON_KEY` ด้วยค่าจากข้อ 1

@@ -318,6 +318,33 @@ create policy "req admin all" on public.access_requests for all to authenticated
   with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 -- ============================================================
+--  Storage: บัคเก็ตรูปถ่ายประกอบรายงาน (report-photos)
+--  ต้องมีบัคเก็ต + policy ครบ ไม่งั้นฟอร์มจะขึ้น "อัปโหลดรูปไม่สำเร็จ"
+--  (เดิมอยู่แต่ใน migration-photos.sql ทำให้โปรเจกต์ที่ตั้งใหม่ไม่มีบัคเก็ต)
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('report-photos','report-photos', true)
+on conflict (id) do update set public = true;
+
+-- ฟอร์มสาธารณะ (anon) และผู้ใช้ที่ล็อกอิน อัปโหลดเข้าบัคเก็ตนี้ได้
+drop policy if exists "report-photos upload" on storage.objects;
+create policy "report-photos upload" on storage.objects
+  for insert to anon, authenticated
+  with check (bucket_id = 'report-photos');
+
+-- อ่านสาธารณะ (บัคเก็ตเป็น public อยู่แล้ว เพิ่ม policy ให้ชัดเจน)
+drop policy if exists "report-photos read" on storage.objects;
+create policy "report-photos read" on storage.objects
+  for select to anon, authenticated
+  using (bucket_id = 'report-photos');
+
+-- ให้ผู้ใช้ที่ล็อกอินลบรูปได้ (เวลาแก้/ลบรายงาน)
+drop policy if exists "report-photos delete" on storage.objects;
+create policy "report-photos delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'report-photos');
+
+-- ============================================================
 --  ตั้งบัญชี admin เริ่มต้น (ให้ RLS ด้านบนทำงาน)
 --  *** เปลี่ยนอีเมลให้ตรงกับ admin ของคุณ แล้วให้ admin ออก-เข้าระบบใหม่ 1 ครั้ง ***
 -- ============================================================
