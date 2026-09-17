@@ -618,11 +618,13 @@
     </div>
   </div>
 </div>
+<!-- มือถือกด 📷 แล้วเรียกแอปกล้องของเครื่องผ่าน input ตัวนี้ (อยู่นอกตาราง จึงไม่ถูก re-render ทับ) -->
+<input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=18"></script>
+<script src="config.js?v=19"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

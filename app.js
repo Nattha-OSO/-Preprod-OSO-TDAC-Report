@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='18';
+const APP_VERSION='19';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -258,15 +258,29 @@ function removePhoto(scope,i,bodyId){
   if(!/rd/.test(bodyId)&&typeof scheduleDraftSave==='function')scheduleDraftSave();
 }
 
-/* ---------- กล้องในหน้าเว็บ: กด 📷 แล้วถ่ายได้เลย ไม่ต้องผ่านแอปกล้องของเครื่อง ---------- */
+/* ---------- กล้อง: กด 📷 แล้วถ่ายได้ทันที ----------
+   มือถือ = เรียกแอปกล้องของเครื่องตรง ๆ (input capture) เชื่อถือได้ทุกรุ่น
+            รวมถึงเบราว์เซอร์ในแอป Line/Facebook ที่มัก block getUserMedia
+   เดสก์ท็อป = เปิดกล้องในหน้าเว็บ เพราะ input capture ถูกเมินบนเดสก์ท็อป
+   ถ้าเปิดกล้องในหน้าเว็บไม่ได้ ตกกลับไปใช้แอปกล้องเสมอ ไม่ปล่อยให้กดแล้วเงียบ */
 let camStream=null,camScope='',camBody='';
+function isMobileUA(){
+  return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent||'')
+    ||(navigator.maxTouchPoints>1&&window.matchMedia('(pointer:coarse)').matches);
+}
+// เปิดแอปกล้องของเครื่อง (หรือหน้าต่างเลือกไฟล์บนเครื่องที่ไม่มีกล้อง)
+function nativeCamera(scope,bodyId){
+  const inp=$('camFallback');
+  if(!inp)return toast('เปิดกล้องไม่ได้ — ใช้ปุ่ม 🖼️ แนบรูป แทน',true);
+  camScope=scope;camBody=bodyId;
+  inp.value='';inp.click();
+}
 async function openCamera(scope,bodyId){
   camScope=scope;camBody=bodyId;
-  const ov=$('cameraModal');if(!ov)return;
-  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))
-    return toast('เบราว์เซอร์นี้เปิดกล้องไม่ได้ — ใช้ปุ่ม 🖼️ แนบรูป แทน',true);
-  if(!window.isSecureContext)
-    return toast('เปิดกล้องได้เฉพาะหน้าเว็บแบบ https — ใช้ปุ่ม 🖼️ แนบรูป แทน',true);
+  const ov=$('cameraModal');
+  const canStream=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)&&window.isSecureContext;
+  // มือถือใช้แอปกล้องเลย ได้ภาพเต็มความละเอียด + โฟกัส/แฟลชของกล้องเครื่อง
+  if(!ov||isMobileUA()||!canStream)return nativeCamera(scope,bodyId);
   ov.classList.add('open');
   const hint=$('camHint'),shot=$('camShot');
   if(hint)hint.textContent='กำลังเปิดกล้อง...';
@@ -275,21 +289,32 @@ async function openCamera(scope,bodyId){
     // กล้องหลังก่อน (ใช้ถ่ายเครื่อง Kiosk) ถ้าไม่มีค่อยใช้ตัวที่เครื่องมี
     try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920}},audio:false});}
     catch(_){camStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}
-    const v=$('camVideo');v.srcObject=camStream;await v.play();
+    const v=$('camVideo');v.srcObject=camStream;
+    try{await v.play();}catch(_){}   // บางเบราว์เซอร์ reject play() แต่ภาพยังมา
     if(hint)hint.textContent='จัดภาพให้ชัด แล้วกด “ถ่ายภาพ”';
     if(shot)shot.disabled=false;
   }catch(e){
     closeCamera();
     const n=(e&&e.name)||'';
-    toast(n==='NotAllowedError'?'ไม่ได้รับอนุญาตให้ใช้กล้อง — กดอนุญาตที่แถบเบราว์เซอร์ หรือใช้ 🖼️ แนบรูป'
-      :n==='NotFoundError'?'ไม่พบกล้องบนเครื่องนี้ — ใช้ปุ่ม 🖼️ แนบรูป แทน'
-      :'เปิดกล้องไม่สำเร็จ: '+((e&&e.message)||e),true);
+    if(n==='NotAllowedError')
+      toast('ไม่ได้รับอนุญาตให้ใช้กล้อง — กดอนุญาตที่แถบเบราว์เซอร์ แล้วลองใหม่',true);
+    else{
+      // เปิดในหน้าเว็บไม่ได้ ก็เรียกแอปกล้องแทน ผู้ใช้ยังถ่ายได้อยู่
+      toast('เปิดกล้องในหน้าเว็บไม่ได้ — เรียกกล้องของเครื่องแทน',true);
+      nativeCamera(scope,bodyId);
+    }
   }
 }
 function closeCamera(){
   const ov=$('cameraModal');if(ov)ov.classList.remove('open');
   const v=$('camVideo');if(v){try{v.pause();}catch(_){}v.srcObject=null;}
   if(camStream){camStream.getTracks().forEach(t=>{try{t.stop();}catch(_){}});camStream=null;}
+}
+// ภาพที่ได้จากแอปกล้องของเครื่อง
+async function handleCamFallback(input){
+  const files=Array.from(input.files||[]);input.value='';
+  if(!files.length)return;                 // ผู้ใช้กดยกเลิกในแอปกล้อง
+  await addPhotos(files,camScope,camBody);
 }
 async function snapPhoto(){
   const v=$('camVideo');if(!v||!v.videoWidth)return;
