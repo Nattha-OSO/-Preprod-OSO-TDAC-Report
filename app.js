@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='22';
+const APP_VERSION='23';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -473,6 +473,29 @@ function showResumeBar(d){
 function hideResumeBar(){const b=$('pubResumeBar');if(b)b.style.display='none';}
 function resumeDraft(){const d=readDraft();if(d){applyDraft(d);toast('โหลดรายการที่ค้างไว้แล้ว');}hideResumeBar();}
 function discardDraft(){if(!confirm('เริ่มรายงานใหม่? ข้อมูลที่บันทึกค้างไว้จะถูกล้าง'))return;clearDraft();resetPublic();}
+/* ---------- ปุ่ม "เคลียร์ข้อมูลก่อนหน้า" — ให้กะถัดไปเริ่มกรอกจากฟอร์มเปล่า ----------
+   ล้างทั้งฟอร์ม + ร่างใน localStorage + รูปที่แนบไว้ แต่ไม่แตะรายงานที่ส่งเข้าระบบไปแล้ว */
+function summarizeFormFilled(){
+  const n=[],g=id=>($(id)&&$(id).value||'').trim();
+  if(g('pubShift'))n.push('รอบการตรวจสอบ');
+  if(g('pubOfficer'))n.push('ชื่อเจ้าหน้าที่');
+  if(g('pubStart')||g('pubEnd'))n.push('เวลาตรวจ');
+  if(g('pubIssue'))n.push('ปัญหา/ข้อเสนอแนะ');
+  const ks=readKiosks('pubKioskBody')||[];
+  const kn=ks.filter(k=>k.occupied||k.system_ready||k.rustdesk_ready||k.network_ready||(k.remark||'').trim()).length;
+  if(kn)n.push('Kiosk ที่กรอกแล้ว '+kn+' เครื่อง');
+  if(($('pubWebPc')&&$('pubWebPc').checked)||($('pubWebMobile')&&$('pubWebMobile').checked)||g('pubWebPcRemark')||g('pubWebMobileRemark'))n.push('Website / Mobile');
+  const pn=Object.keys(photoState||{}).reduce((a,s)=>a+((photoState[s]||[]).length),0);
+  if(pn)n.push('รูปที่แนบ '+pn+' รูป');
+  return n;
+}
+function clearPrevShift(){
+  const n=summarizeFormFilled();
+  if(!n.length){toast('ฟอร์มยังว่างอยู่ ไม่มีข้อมูลต้องเคลียร์');return;}
+  if(!confirm('เคลียร์ข้อมูลของกะก่อนหน้าทั้งหมด เพื่อให้กะถัดไปเริ่มกรอกใหม่?\n\nข้อมูลที่จะถูกล้าง:\n· '+n.join('\n· ')+'\n\nหมายเหตุ: รายงานที่กด “ส่งรายงาน” เข้าระบบไปแล้วจะไม่ถูกลบ'))return;
+  resetPublic();   // ล้างฟอร์ม + ร่าง + รูป และตั้งวันที่เป็นวันนี้
+  toast('เคลียร์ข้อมูลก่อนหน้าแล้ว — เริ่มกรอกรอบใหม่ได้เลย');
+}
 // จากหน้าขอบคุณ: กลับไปแก้/ตรวจเพิ่มรอบเดิม (โหลดข้อมูลที่เพิ่งส่ง กลับมาแก้ แล้วส่งซ้ำ = อัปเดตรายการเดิม)
 function editThisRound(){const d=readDraft();$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';if(d)applyDraft(d);hideResumeBar();window.scrollTo(0,0);}
 // ---------- ปฏิทินกำหนดเอง (แสดง DD/MM/YYYY ทุกเบราว์เซอร์) ----------

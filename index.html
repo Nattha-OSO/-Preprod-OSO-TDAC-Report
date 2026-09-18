@@ -194,6 +194,8 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);overflow:hidden}
   .card-h{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:750;color:var(--navy);font-size:15px;background:linear-gradient(180deg,#fff,var(--panel2))}
   .card-b{padding:18px}
+  /* ปุ่มเคลียร์ข้อมูลก่อนหน้า — ดันไปชิดขวาของหัวการ์ด "ข้อมูลการตรวจสอบ" */
+  #pubClearBtn{margin-left:auto;font-weight:700}
   .public .label{font-size:13px;color:#42577a;font-weight:600}
   .public .input,.public select{font-size:15px;min-height:46px;border-radius:11px}
   .req{color:var(--rose);font-weight:800;margin-left:3px}
@@ -234,6 +236,9 @@
     #guideModal .modal{width:100%!important;height:100%!important;max-height:100%!important;border-radius:0}
     .pub-card{gap:14px}
     .card-h{font-size:14px;padding:13px 15px}
+    /* มือถือ: ปุ่มเคลียร์ลงบรรทัดใหม่เต็มความกว้าง กดง่ายบนจอสัมผัส */
+    .card-h{flex-wrap:wrap}
+    #pubClearBtn{margin-left:0;width:100%;min-height:40px;font-size:13px}
     .card-b{padding:14px}
     .sumchip .n{font-size:22px}
   }
@@ -346,7 +351,10 @@
 
         <!-- header -->
         <div class="card">
-          <div class="card-h">📋 ข้อมูลการตรวจสอบ</div>
+          <div class="card-h">📋 ข้อมูลการตรวจสอบ
+            <!-- กะถัดไปมากรอกต่อ: ล้างข้อมูลของกะก่อนหน้าทั้งฟอร์มในคลิกเดียว -->
+            <button type="button" class="btn danger sm" id="pubClearBtn" onclick="clearPrevShift()" title="ล้างข้อมูลที่กะก่อนหน้ากรอกไว้ เพื่อเริ่มกรอกรอบใหม่">🧹 เคลียร์ข้อมูลก่อนหน้า</button>
+          </div>
           <div class="card-b">
             <div class="form-grid">
               <div class="field"><label class="label">วันที่ตรวจสอบ<span class="req">*</span></label>
@@ -628,9 +636,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=22"></script>
+<script src="config.js?v=23"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
