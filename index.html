@@ -113,7 +113,7 @@
   .resume-bar .resume-actions{display:flex;gap:8px;flex-shrink:0}
   .resume-bar .resume-actions .btn{padding:7px 15px;font-size:13px}
   .sumchip .n.web{font-size:16px;line-height:1.4;padding:4px 0}
-  #pubSumbar{grid-template-columns:repeat(6,minmax(0,1fr))}
+  #pubSumbar{grid-template-columns:repeat(3,minmax(0,1fr))}
   @media(max-width:600px){.sumbar{grid-template-columns:repeat(2,1fr)}#pubSumbar{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:601px) and (max-width:900px){#pubSumbar{grid-template-columns:repeat(3,1fr)}}
 
@@ -338,10 +338,11 @@
         <div class="sumbar" id="pubSumbar">
           <div class="sumchip"><div class="n" id="pubChipTotal">20</div><div class="l">Kiosks Total</div></div>
           <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">พร้อมใช้งาน</div></div>
-          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">รอตรวจซ้ำ</div></div>
           <div class="sumchip bad"><div class="n" id="pubChipNot">20</div><div class="l">Not Ready</div></div>
-          <div class="sumchip pct"><div class="n" id="pubChipPct">0%</div><div class="l">Readiness (รวม)</div></div>
-          <div class="sumchip pct"><div class="n" id="pubChipPctChecked">—</div><div class="l">Readiness (ตรวจได้)</div></div>
+          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">รอตรวจซ้ำ (รายการ)</div></div>
+          <div class="sumchip pct"><div class="n" id="pubChipPct">0%</div><div class="l">ความพร้อมใช้งาน</div></div>
+          <div class="sumchip pct"><div class="n" id="pubChipPctCoverage">—</div><div class="l">ความครบถ้วนการตรวจ</div></div>
+          <div class="sumchip pct"><div class="n" id="pubChipPctChecked">—</div><div class="l">ผ่านเฉพาะที่ตรวจได้</div></div>
           <div class="sumchip"><div class="n web" id="pubChipWebPc">—</div><div class="l">Website (PC)</div></div>
           <div class="sumchip"><div class="n web" id="pubChipWebMobile">—</div><div class="l">Website (Mobile)</div></div>
         </div>
@@ -636,9 +637,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=23"></script>
+<script src="config.js?v=24"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

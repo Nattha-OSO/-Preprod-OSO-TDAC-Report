@@ -483,7 +483,16 @@
           <span><strong>Network Ready</strong> — เชื่อมต่อเครือข่ายได้</span>
         </div>
         <div style="margin-top:6px; font-size:11px; color:var(--muted);">
-          💡 กด <strong>Check All</strong> เมื่อผ่านทั้ง 3 รายการ
+          💡 กด <strong>Check All</strong> เมื่อผ่านทั้ง 3 รายการ · กดปุ่มแต่ละรายการเพื่อสลับ
+          <strong>○ ยังไม่ตรวจ → ✓ พร้อม → ⏳ ตรวจไม่ได้</strong>
+        </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; padding:8px 10px; line-height:1.7;">
+          ⏳ <strong>กรณีผู้โดยสารกำลังใช้เครื่องอยู่</strong><br>
+          1) กดปุ่ม <strong>⏳ ไม่ว่าง</strong> → ทั้ง 3 รายการเปลี่ยนเป็น ⏳<br>
+          2) กด <strong>System</strong> และ <strong>Network</strong> ให้เป็น ✓ (เพราะผู้โดยสารใช้งานอยู่ = ระบบและเครือข่ายทำงานปกติ)<br>
+          3) เหลือ <strong>RustDesk</strong> เป็น ⏳ ไว้ แล้วกลับไปตรวจซ้ำเมื่อเครื่องว่าง<br>
+          รายการ ⏳ <strong>ไม่นับเป็นเครื่องเสีย</strong> (Not Ready) แต่จะไปลดตัวเลข
+          <strong>“ความครบถ้วนการตรวจ”</strong> จนกว่าจะกลับไปตรวจซ้ำให้ครบ
         </div>
       </div>
     </div>
