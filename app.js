@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='21';
+const APP_VERSION='22';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -1251,12 +1251,17 @@ function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';
 function dHeading(text){return dPar(text,{sz:26,bold:true,color:'1749c4',before:200,after:80});}
 function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 // เซลล์ที่ส่งเป็น {xml:'<w:p>...'} จะใส่ XML นั้นตรง ๆ (ใช้กับเซลล์ที่มีทั้งข้อความและรูป)
+/* opts.headerAlign = การจัดวางหัวตาราง (ค่าเริ่มต้น 'center' — ส่ง 'left' ได้ถ้าแถวแรกไม่ใช่หัวตารางจริง)
+   opts.center      = รายการลำดับคอลัมน์ในเนื้อตารางที่ให้จัดกึ่งกลาง (ใช้กับคอลัมน์ ✔ / ✘ และค่าสั้น ๆ) หรือ 'all' */
 function dTable(rows,widths,headerFill,opts){
   opts=opts||{};const va=opts.vAlign||'center';
+  const hAlign=opts.headerAlign===undefined?'center':opts.headerAlign;
+  const ctr=opts.center||[],isCtr=ci=>ctr==='all'||(Array.isArray(ctr)&&ctr.indexOf(ci)>=0);
   const grid='<w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
   const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+(isH?'<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>':'')+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;
-    const inner=(cell&&typeof cell==='object'&&cell.xml!=null)?cell.xml:dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937'});
+    const al=isH?(hAlign||null):(isCtr(ci)?'center':null);
+    const inner=(cell&&typeof cell==='object'&&cell.xml!=null)?cell.xml:dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937',align:al});
     return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="'+(isH?'center':va)+'"/></w:tcPr>'+inner+'</w:tc>';}).join('')+'</w:tr>';}).join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+widths.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
 }
@@ -1362,7 +1367,7 @@ async function buildSingleReportDocxBlob(r){
   if(TL.rechecks.length){
     body+=dHeading('รายละเอียดเครื่องที่ตรวจซ้ำ (เครื่องที่ไม่ว่างตอนตรวจรอบแรก)');
     const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
-    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000]);
+    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000],null,{center:'all'});
   }
   /* ---- ตัวช่วยฝังรูปลงเอกสาร (ใช้ร่วมกันทั้งเซลล์หมายเหตุรายเครื่อง และภาพประกอบท้ายรายงาน) ----
      ทุกรูปผ่านทางนี้ทางเดียว จึงนับเลขไฟล์/relationship ต่อเนื่องกันได้ ไม่ชนกัน
@@ -1408,7 +1413,7 @@ async function buildSingleReportDocxBlob(r){
       cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:(txt?60:20),after:i===pics.length-1?20:40});
     krows.push([k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),immCell,status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
   }
-  body+=dTable([['Kiosk','System','RustDesk','Network','ตม. ประจำจุด','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top'});
+  body+=dTable([['Kiosk','System','RustDesk','Network','ตม. ประจำจุด','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3,4]});
   body+=dHeading('Website / Mobile Checklist');
   /* รูปของ Website (PC/Mobile) ไปอยู่ในช่อง Remark ของแถวนั้น ๆ เช่นเดียวกับ Kiosk */
   const WPHOTO_PX=300;                         // รูปกว้างสุดในเซลล์ Remark ของ Website (≈ 3.1 นิ้ว)
@@ -1422,7 +1427,7 @@ async function buildSingleReportDocxBlob(r){
   };
   body+=dTable([['Platform','System Ready','Remark (หมายเหตุ + ภาพถ่าย)'],
     ['Website (PC)',r.webPc?yes:no,await webCell(r.webPcRemark,r.web_pc_photos||r.webPcPhotos)],
-    ['Website (Mobile)',r.webMobile?yes:no,await webCell(r.webMobileRemark,r.web_mobile_photos||r.webMobilePhotos)]],[2700,2200,5100],null,{vAlign:'top'});
+    ['Website (Mobile)',r.webMobile?yes:no,await webCell(r.webMobileRemark,r.web_mobile_photos||r.webMobilePhotos)]],[2700,2200,5100],null,{vAlign:'top',center:[1]});
   body+=dHeading('รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ');
   body+=dPar(r.issue||'— ไม่มี —',{fill:'F4F6F9'});
   // ---- ภาพประกอบเฉพาะข้อเสนอแนะ — รูปของ Kiosk และ Website อยู่ในช่อง Remark ของแถวนั้น ๆ แล้ว ----
@@ -1486,20 +1491,20 @@ async function buildReportDocxBlob(start,end,word,label){
   let body=dLogoHeaderXml(logos);
   body+=dPar('รายงานการตรวจสอบระบบ TDAC (Website + Kiosk) '+word+' '+label,{sz:34,bold:true,color:'111827',align:'center',after:60});
   body+=dPar('Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)',{sz:20,color:'374151',align:'center',after:200});
-  body+=dTable([['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO-TDAC Operational Report (Supabase)']],[2600,6400],'F2F7FF');
+  body+=dTable([['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO-TDAC Operational Report (Supabase)']],[2600,6400],'F2F7FF',{headerAlign:null});
   body+=dHeading('สรุปภาพรวม (Dashboard Summary)');
   body+=dKpiCards([['จำนวนรายงาน',String(s.total),'รอบ'],['Readiness เฉลี่ย',(s.avgReadiness||0)+'%','ทุกรอบ'],['Web PC พร้อม',(s.webPcPct||0)+'%','ของรอบ'],['Web Mobile พร้อม',(s.webMobilePct||0)+'%','ของรอบ']]);
   body+=dHeading('กราฟจำนวนครั้ง Not Ready รายเครื่อง');
   if(hasChart)body+=dImage();else body+=dPar('ไม่พบเครื่อง Kiosk ที่ Not Ready ในรอบรายงานนี้ (ทุกเครื่องพร้อมใช้งาน)',{color:'15803d'});
   body+=dHeading('เครื่อง Kiosk ที่ต้องติดตาม');
   const ph=(s.problem||[]).map((h,i)=>[String(i+1),h.id,String(h.notReady)+' / '+h.checks,(h.pct==null?'-':h.pct+'%'),topFail(h.fail)]);
-  body+=ph.length?dTable([['ลำดับ','Kiosk ID','Not Ready','Readiness','ระบบที่ล้มบ่อย']].concat(ph),[900,2200,2000,1600,2300]):dPar('ไม่มีเครื่องที่พบปัญหาในรอบรายงานนี้',{color:'15803d'});
+  body+=ph.length?dTable([['ลำดับ','Kiosk ID','Not Ready','Readiness','ระบบที่ล้มบ่อย']].concat(ph),[900,2200,2000,1600,2300],null,{center:[0,1,2,3]}):dPar('ไม่มีเครื่องที่พบปัญหาในรอบรายงานนี้',{color:'15803d'});
   body+=dHeading('จำนวนรายงานตามรอบ');
   const sr=Object.entries(s.shiftCounts||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[String(i+1),x[0]||'-',String(x[1])]);
-  body+=sr.length?dTable([['ลำดับ','รอบการตรวจสอบ','จำนวนรายงาน']].concat(sr),[900,6000,2100]):dPar('ไม่มีข้อมูล',{color:'6a7d9b'});
+  body+=sr.length?dTable([['ลำดับ','รอบการตรวจสอบ','จำนวนรายงาน']].concat(sr),[900,6000,2100],null,{center:[0,2]}):dPar('ไม่มีข้อมูล',{color:'6a7d9b'});
   body+=dHeading('จำนวนรายงานตามผู้ตรวจสอบ');
   const or=Object.entries(s.officerCounts||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[String(i+1),x[0]||'-',String(x[1])]);
-  body+=or.length?dTable([['ลำดับ','เจ้าหน้าที่ Onsite Support','จำนวนรายงาน']].concat(or),[900,6000,2100]):dPar('ไม่มีข้อมูล',{color:'6a7d9b'});
+  body+=or.length?dTable([['ลำดับ','เจ้าหน้าที่ Onsite Support','จำนวนรายงาน']].concat(or),[900,6000,2100],null,{center:[0,2]}):dPar('ไม่มีข้อมูล',{color:'6a7d9b'});
   body+=dHeading('ข้อเสนอแนะเชิงบริหาร');
   const worst=(s.problem||[])[0];
   const r1=s.total?'รักษาการตรวจสอบระบบ TDAC ให้ครบทุกกะ (IMP/D และ IMP/N) และบันทึกรายงานทุกครั้งเพื่อให้ติดตามแนวโน้มได้':'เริ่มบันทึกรายงานการตรวจสอบให้ครบถ้วนทุกกะก่อนใช้ประกอบการตัดสินใจ';
@@ -1510,7 +1515,7 @@ async function buildReportDocxBlob(start,end,word,label){
   body+=dPar('3. '+r3,{fill:'F4F6F9',after:40});
   body+=dHeading('รายละเอียดรายงานทั้งหมดในรอบ');
   const dr=reports.map((r,i)=>[String(i+1),dispDate(r.date),r.shift,r.officer,r.ready+'/'+r.total,r.pct+'%']);
-  body+=dr.length?dTable([['ลำดับ','วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','Readiness']].concat(dr),[700,2000,1800,2300,1100,1100]):dPar('ไม่มีรายงานในรอบนี้',{color:'6a7d9b'});
+  body+=dr.length?dTable([['ลำดับ','วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','Readiness']].concat(dr),[700,2000,1800,2300,1100,1100],null,{center:[0,1,2,4,5]}):dPar('ไม่มีรายงานในรอบนี้',{color:'6a7d9b'});
   body+=dHeading('บันทึกปัญหา/ข้อเสนอแนะในรอบรายงาน');
   const issues=reports.filter(r=>r.issue);
   if(issues.length)issues.forEach(r=>{body+=dPar(dispDate(r.date)+' · '+r.shift+' · '+r.officer,{sz:18,bold:true,color:'0b2f6b',before:80,after:20});body+=dPar(r.issue,{fill:'F4F6F9'});});
