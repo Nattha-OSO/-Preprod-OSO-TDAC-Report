@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='20';
+const APP_VERSION='21';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -1315,12 +1315,10 @@ async function docxImageFor(path){
   if(c&&c.bytes&&c.bytes.length)return c;
   return await fetchDocxImage(photoUrl(path));
 }
-// รวบรวม path รูป "นอกตาราง Kiosk" — รูปของแต่ละเครื่องไปอยู่ในเซลล์หมายเหตุของเครื่องนั้นแล้ว
+// รวบรวม path รูปของ "ข้อเสนอแนะ" เท่านั้น — รูปของ Kiosk และ Website ไปอยู่ในช่อง Remark ของแถวนั้น ๆ แล้ว
 function collectReportPhotos(r){
   const out=[],push=(label,arr)=>{(arr||[]).forEach(p=>{if(p)out.push({label,path:p});});};
   push('ข้อเสนอแนะ / ปัญหา', r.issue_photos||r.issuePhotos);
-  push('Website (PC)', r.web_pc_photos||r.webPcPhotos);
-  push('Website (Mobile)', r.web_mobile_photos||r.webMobilePhotos);
   return out;
 }
 // XML รูปภาพ inline ขนาด cx,cy (EMU) — o.before/o.after ปรับระยะห่าง, o.align จัดตำแหน่ง
@@ -1340,29 +1338,29 @@ async function buildSingleReportDocxBlob(r){
   const rst=readinessStats(r.kiosks||[],r.total||KIOSK_COUNT);
   const pending=rst.occupied,notReady=rst.notReady,checkedPct=rst.checkedPct;
   const tStart=r.inspectStart||'',tEnd=r.inspectEnd||'';
-  const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น. (รอบแรก)':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
+  const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น.':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
   const TL=inspectionTimeline(r);
   const kv=[
     ['วันที่ตรวจสอบ',dispDate(r.date)],
     ['รอบการตรวจสอบ',r.shift],
     ['ช่วงเวลาการตรวจ',timeRange],
     ['ผู้ตรวจสอบ (OSO)',r.officer],
-    ['ความพร้อม Kiosk',rst.pct+'%   ('+rst.usable+' / '+r.total+' เครื่องพร้อมใช้งาน)'+(rst.needRecheck?'   ·   รอตรวจซ้ำ '+rst.needRecheck+' เครื่อง (เข้าไม่ได้ '+rst.occupied+' · รอตรวจบางรายการ '+rst.wait+')':'')],
+    ['ความพร้อม Kiosk',rst.pct+'%   ('+rst.usable+' / '+r.total+' เครื่องพร้อมใช้งาน)'+(rst.needRecheck?'   ·  เครื่องไม่ว่าง '+rst.needRecheck+' เครื่อง':'')],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
-  kv.push(['ตรวจครบทุกเครื่อง', TL.pendingNow>0?('ยังไม่ครบ — เหลือรอตรวจซ้ำ '+TL.pendingNow+' เครื่อง'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
-  if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลารวมจนตรวจครบ', fmtDur(TL.totalMin)+(TL.firstPassMin!=null?'   (รอบแรก '+fmtDur(TL.firstPassMin)+(TL.waitMin?' · รอ/ตรวจซ้ำ '+fmtDur(TL.waitMin):'')+')':'')]);
-  else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาตรวจรอบแรก', fmtDur(TL.firstPassMin)]);
+  kv.push(['ตรวจครบทุกเครื่อง', TL.pendingNow>0?('เครื่องไม่ว่าง '+TL.pendingNow+' เครื่อง'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
+  if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
+  else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
   body+=dKvTable(kv,3200,6800);
-  body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],['รอตรวจซ้ำ',String(rst.needRecheck),'เครื่อง',rst.needRecheck?'b9770e':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['Readiness (รวม)',rst.pct+'%','ใช้งานได้ / ทั้งหมด'],['Readiness (ตรวจได้)',(checkedPct==null?'—':checkedPct+'%'),'เฉพาะที่ตรวจ']]);
+  body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],['เครื่องไม่ว่าง',String(rst.needRecheck),'เครื่อง',rst.needRecheck?'b9770e':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['Readiness (รวม)',rst.pct+'%','ใช้งานได้ / ทั้งหมด'],['Readiness (ตรวจได้)',(checkedPct==null?'—':checkedPct+'%'),'เฉพาะที่ตรวจ']]);
   body+=dKpiCards([
     ['Website (PC)',r.webPc?'✔':'✘',r.webPc?'System Ready':'Not Ready',r.webPc?'15803d':'c0392b'],
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
   if(TL.rechecks.length){
-    body+=dHeading('ไทม์ไลน์การตรวจซ้ำ (เครื่องที่ไม่ว่างตอนตรวจรอบแรก)');
+    body+=dHeading('รายละเอียดเครื่องที่ตรวจซ้ำ (เครื่องที่ไม่ว่างตอนตรวจรอบแรก)');
     const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
     body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000]);
   }
@@ -1376,51 +1374,65 @@ async function buildSingleReportDocxBlob(r){
       if(!img||!img.bytes||!img.bytes.length){photoFailed++;return '';}
       const n=++photoSeq,fname='photo-'+n+'.jpg',rid='rIdPhoto'+n,pid=200+n;
       const w0=img.w||320,h0=img.h||240;
-      const wpx=Math.min(w0,maxPx),hpx=Math.max(1,Math.round(h0*(wpx/w0)));
+      let wpx=Math.min(w0,maxPx),hpx=Math.max(1,Math.round(h0*(wpx/w0)));
+      // รูปแนวตั้งอย่าให้สูงจนดันแถวข้ามหน้า — ย่อลงให้สูงไม่เกิน 1.6 เท่าของความกว้างที่กำหนด
+      const maxH=Math.round(maxPx*1.6);
+      if(hpx>maxH){wpx=Math.max(1,Math.round(wpx*(maxH/hpx)));hpx=maxH;}
       photoMedia.push({name:fname,bytes:img.bytes});
       photoRelsXml+='<Relationship Id="'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fname+'"/>';
       return dPhotoXml(rid,Math.round(wpx*9525),Math.round(hpx*9525),pid,fname,opt);
     }catch(e){photoFailed++;return '';}
   }
-  body+=dHeading('Kiosk Checklist (IMM001–IMM020)');
-  /* ช่อง Remark ของแต่ละเครื่องรวมทุกอย่างไว้ในเซลล์เดียว เรียงจากบนลงล่าง:
-       1) เจ้าหน้าที่ ตม. ประจำจุด (มี/ไม่มี)   2) ข้อความหมายเหตุที่ผู้ตรวจพิมพ์   3) รูปที่ถ่ายไว้ */
-  const KW=[1000,900,1150,950,2100,3900];   // รวม 10000 dxa พอดีความกว้างพิมพ์ A4
-  const KPHOTO_PX=230;                      // รูปกว้างสุดในเซลล์ Remark (≈ 2.4 นิ้ว)
+  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) ดังนี้');
+  /* "ตม. ประจำจุด" แยกเป็นคอลัมน์ของตัวเอง (✔ มี / ✘ ไม่มี / — ยังไม่ระบุ)
+     ช่อง Remark จึงเหลือเฉพาะ 1) ข้อความหมายเหตุที่ผู้ตรวจพิมพ์  2) รูปที่ถ่ายไว้ */
+  const KW=[900,850,1000,900,1000,1850,3500];  // รวม 10000 dxa พอดีความกว้างพิมพ์ A4
+  const KPHOTO_PX=205;                         // รูปกว้างสุดในเซลล์ Remark (≈ 2.1 นิ้ว)
   const krows=[];
   for(const k of (r.kiosks||[])){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>k.occupied?'—':(subStateOf(k,t)==='wait'?'⏳':(subStateOf(k,t)==='ok'?yes:no));
-    const status=cls==='occupied'?'เครื่องไม่ว่าง (รอตรวจซ้ำ)'
+    const status=cls==='occupied'?'เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน)'
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
       :cls==='usable_wait'?('พร้อมใช้งาน · รอตรวจ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
       :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
     const sp=immSplit(k.remark);
+    const immCell=sp.imm==='yes'?{xml:dCellPar(yes,{sz:22,bold:true,color:'15803d',align:'center'})}
+      :sp.imm==='no'?{xml:dCellPar(no,{sz:22,bold:true,color:'c0392b',align:'center'})}
+      :{xml:dCellPar('—',{sz:20,color:'9aa7bd',align:'center'})};
     let cell='';
-    if(sp.imm==='yes')cell+=dCellPar(yes+' มีเจ้าหน้าที่ ตม. ประจำจุด',{sz:17,bold:true,color:'3730a3'});
-    else if(sp.imm==='no')cell+=dCellPar(no+' ไม่มีเจ้าหน้าที่ ตม. ประจำจุด',{sz:17,bold:true,color:'b91c1c'});
     const txt=(sp.text||'').trim();
     if(txt)cell+=dCellPar(txt,{sz:20,color:'1f2937'});
     const pics=(k.remark_photos||[]).filter(Boolean);
     for(let i=0;i<pics.length;i++)
-      cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:60,after:i===pics.length-1?20:40});
-    krows.push([k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
+      cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:(txt?60:20),after:i===pics.length-1?20:40});
+    krows.push([k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),immCell,status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
   }
-  body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top'});
+  body+=dTable([['Kiosk','System','RustDesk','Network','ตม. ประจำจุด','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top'});
   body+=dHeading('Website / Mobile Checklist');
-  body+=dTable([['Platform','System Ready','Remark'],
-    ['Website (PC)',r.webPc?yes:no,r.webPcRemark||''],
-    ['Website (Mobile)',r.webMobile?yes:no,r.webMobileRemark||'']],[2700,2200,5100]);
+  /* รูปของ Website (PC/Mobile) ไปอยู่ในช่อง Remark ของแถวนั้น ๆ เช่นเดียวกับ Kiosk */
+  const WPHOTO_PX=300;                         // รูปกว้างสุดในเซลล์ Remark ของ Website (≈ 3.1 นิ้ว)
+  const webCell=async(remark,paths)=>{
+    let x='';const t=String(remark||'').trim();
+    if(t)x+=dCellPar(t,{sz:20,color:'1f2937'});
+    const ps=(paths||[]).filter(Boolean);
+    for(let i=0;i<ps.length;i++)
+      x+=await embedPhoto(ps[i],WPHOTO_PX,{before:i?40:(t?60:20),after:i===ps.length-1?20:40});
+    return {xml:x||dCellPar('—',{sz:20,color:'9aa7bd'})};
+  };
+  body+=dTable([['Platform','System Ready','Remark (หมายเหตุ + ภาพถ่าย)'],
+    ['Website (PC)',r.webPc?yes:no,await webCell(r.webPcRemark,r.web_pc_photos||r.webPcPhotos)],
+    ['Website (Mobile)',r.webMobile?yes:no,await webCell(r.webMobileRemark,r.web_mobile_photos||r.webMobilePhotos)]],[2700,2200,5100],null,{vAlign:'top'});
   body+=dHeading('รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ');
   body+=dPar(r.issue||'— ไม่มี —',{fill:'F4F6F9'});
-  // ---- ภาพประกอบส่วนที่ไม่ใช่รายเครื่อง (ข้อเสนอแนะ / Website) — รูปของ Kiosk อยู่ในตารางข้างบนแล้ว ----
+  // ---- ภาพประกอบเฉพาะข้อเสนอแนะ — รูปของ Kiosk และ Website อยู่ในช่อง Remark ของแถวนั้น ๆ แล้ว ----
   try{
     let gallery='';
     for(const ph of collectReportPhotos(r)){
       const xml=await embedPhoto(ph.path,340);
       if(xml)gallery+=dPar(ph.label,{sz:18,bold:true,color:'0b2f6b',after:20})+xml;
     }
-    if(gallery)body+=dHeading('ภาพประกอบ (ข้อเสนอแนะ / Website)')+gallery;
+    if(gallery)body+=dHeading('ภาพประกอบ (ข้อเสนอแนะ)')+gallery;
   }catch(e){}
   // เดิม: รูปหายเงียบ ๆ ไม่มีใครรู้ — ตอนนี้เตือนให้เห็นว่าแนบรูปไม่ครบ
   if(photoFailed)toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ '+photoFailed+' รูป (รายงานส่งได้ แต่ไม่มีรูปครบ)',true);
