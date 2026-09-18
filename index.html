@@ -132,6 +132,11 @@
   .btn-all:disabled{opacity:.45;cursor:not-allowed}
   .btn-occ{border:1px solid #fcd34d;background:#fffbeb;color:#b45309;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
   .btn-occ.on{background:#f59e0b;color:#fff;border-color:transparent}
+  /* ปุ่มระบุว่ามีเจ้าหน้าที่ ตม. ประจำจุดหรือไม่ (กดสลับ: ยังไม่ระบุ → มี → ไม่มี) */
+  .btn-imm{border:1px dashed var(--line2);background:#fff;color:#64748b;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;font-family:inherit}
+  .btn-imm:hover{border-color:var(--primary);color:var(--primary)}
+  .btn-imm[data-state="yes"]{border-style:solid;background:#eef2ff;border-color:#a5b4fc;color:#3730a3}
+  .btn-imm[data-state="no"]{border-style:solid;background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
   .chk.dis{opacity:.4;pointer-events:none;background:#f1f5f9}
   /* ปุ่มรายการย่อย 3 สถานะ (System/RustDesk/Network): ○ ยังไม่ตรวจ · ✓ พร้อม · ⏳ รอตรวจซ้ำ */
   .subchk{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line2);background:#fbfcfe;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:12.5px;font-weight:700;color:#46597a;transition:.12s;user-select:none}
@@ -222,6 +227,7 @@
     .chk,.subchk{flex:1 1 28%;justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
     .chk input{width:18px;height:18px}
     .btn-all,.btn-occ{flex:1 1 48%;padding:10px;margin-top:2px;font-size:13px}
+    .btn-imm{flex:1 1 100%;padding:10px;margin-top:2px;font-size:13px;text-align:center}
     .remark-input{width:100%;font-size:14px;min-height:50px;background:#fafbfd;padding:9px 11px}
     .remark-cell::before,.ktable td:last-child::before{content:"📝 หมายเหตุ";display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px}
     #guideModal{padding:0}
@@ -622,9 +628,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=19"></script>
+<script src="config.js?v=20"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

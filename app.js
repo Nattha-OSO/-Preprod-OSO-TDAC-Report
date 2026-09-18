@@ -5,11 +5,14 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='19';
+const APP_VERSION='20';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
 const SHIFTS=['IMP/D 10:00','IMP/N 22:00'];
+// เจ้าหน้าที่ ตม. ประจำจุดของเครื่องนั้น ๆ: '' ยังไม่ระบุ · 'yes' มี · 'no' ไม่มี
+const IMM_LABEL={'':'👮 ตม. ประจำจุด?','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด'};
+const IMM_REMARK={'yes':'มีเจ้าหน้าที่ ตม. ประจำจุด','no':'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด'};
 const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
@@ -159,6 +162,7 @@ function kioskRowsHtml(){
       SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="no" onclick="cycleSub(this)" title="กดสลับ: ○ ยังไม่ตรวจ → ✓ พร้อม → ⏳ รอตรวจซ้ำ"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
       '<button type="button" class="btn-occ" data-kiosk="'+id+'" onclick="kioskToggleOccupied(this)" title="เครื่องไม่ว่างตอนไปตรวจ — รอตรวจซ้ำ">⏳ ไม่ว่าง</button>'+
+      '<button type="button" class="btn-imm" data-kiosk="'+id+'" data-state="" onclick="cycleImm(this)" title="กดสลับ: ยังไม่ระบุ → มีเจ้าหน้าที่ ตม. ประจำจุด → ไม่มี">'+IMM_LABEL['']+'</button>'+
       '<input type="checkbox" class="occ-flag" data-kiosk="'+id+'" data-type="occupied" hidden>'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
       '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
@@ -329,6 +333,31 @@ async function snapPhoto(){
   await addPhotos([f],scope,bodyId);
 }
 const OCC_REMARK='เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน) — รอตรวจซ้ำ';
+/* ---------- เจ้าหน้าที่ ตม. ประจำจุด ----------
+   เก็บเป็น "บรรทัดแรกของหมายเหตุ" ของเครื่องนั้น ๆ (IMM001–IMM020)
+   จึงไปอยู่ในรายงาน/ฐานข้อมูลเดิมได้ทันที ไม่ต้องเพิ่มคอลัมน์ใหม่
+   หมายเหตุที่เก็บ = "มีเจ้าหน้าที่ ตม. ประจำจุด\n<ข้อความที่ผู้ตรวจพิมพ์>" */
+function immSplit(remark){
+  const s=String(remark||''),nl=s.indexOf('\n'),head=(nl<0?s:s.slice(0,nl)).trim();
+  for(const k in IMM_REMARK)if(IMM_REMARK[k]===head)return {imm:k,text:nl<0?'':s.slice(nl+1)};
+  return {imm:'',text:s};
+}
+function immJoin(imm,text){
+  const t=String(text||'').trim();
+  return IMM_REMARK[imm]?(IMM_REMARK[imm]+(t?'\n'+t:'')):t;
+}
+function setImm(body,id,state){
+  const b=body&&body.querySelector('.btn-imm[data-kiosk="'+id+'"]');if(!b)return;
+  const s=IMM_REMARK[state]?state:'';
+  b.dataset.state=s;b.textContent=IMM_LABEL[s];
+}
+// กดสลับ: ยังไม่ระบุ → มี → ไม่มี
+function cycleImm(btn){
+  const order=['','yes','no'],cur=btn.dataset.state||'',next=order[(order.indexOf(cur)+1)%3];
+  const body=btn.closest('tbody');
+  setImm(body,btn.dataset.kiosk,next);
+  if(body&&body.id==='pubKioskBody')scheduleDraftSave();
+}
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
 function shiftStartTime(shift){const s=String(shift||'');return s.indexOf('IMP/D')>=0?'10:00':(s.indexOf('IMP/N')>=0?'22:00':'');}
 function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -518,17 +547,22 @@ function readKiosks(bodyId){
     const st=t=>subStateEl(body,id,t);
     const wait=occ?[]:SUBSYS.filter(s=>st(s.t)==='wait').map(s=>s.t);
     const rem=(body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]')||{}).value||'';
+    // สถานะเจ้าหน้าที่ ตม. ประจำจุด → เก็บเป็นบรรทัดแรกของหมายเหตุเครื่องนั้น
+    const imm=((body.querySelector('.btn-imm[data-kiosk="'+id+'"]')||{}).dataset||{}).state||'';
     return {kiosk_id:id,
       system_ready:!occ&&st('system')==='ok',rustdesk_ready:!occ&&st('rustdesk')==='ok',network_ready:!occ&&st('network')==='ok',
       occupied:occ,recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
-      remark:rem.trim()||null,remark_photos:(photoState[id]||[]).slice()};
+      remark:immJoin(imm,rem)||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
   const body=$(bodyId),map={};(arr||[]).forEach(k=>map[k.kiosk_id]=k);
   KIOSKS.forEach(id=>{const k=map[id]||{},wait=new Set(k.recheck_items||[]);
     SUBSYS.forEach(s=>{const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(b)b.dataset.state=wait.has(s.t)?'wait':(k[s.t+'_ready']?'ok':'no');});
-    const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=k.remark||'';
+    // แยก "มี/ไม่มี ตม. ประจำจุด" ออกจากบรรทัดแรกของหมายเหตุ กลับไปเป็นปุ่ม + ข้อความ
+    const sp=immSplit(k.remark);
+    setImm(body,id,sp.imm);
+    const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=sp.text||'';
     const flag=body.querySelector('.occ-flag[data-kiosk="'+id+'"]'),occ=!!k.occupied;if(flag)flag.checked=occ;
     applyOccupied(body,id,occ,false);   // restore สถานะ occupied โดยไม่แตะ remark ที่เก็บไว้
     setRecheck(body,id,occ?'':(k.recheck_at||''));   // เครื่องที่ยัง occupied ไม่แสดงเวลา, ที่ตรวจซ้ำแล้วแสดงเวลาเดิม
@@ -632,7 +666,8 @@ async function submitPublic(){
   let firstBad=null;const markBad=el=>{if(el){el.classList.add('invalidf');if(!firstBad)firstBad=el;}};
   // บังคับ Remark เฉพาะเครื่องที่มีรายการ "เสีย/ไม่พร้อม" (Not Ready) — เครื่องที่ "รอตรวจซ้ำ" (⏳) ไม่ต้องใส่
   kiosks.forEach(k=>{
-    if(kioskClass(k)==='notready'&&!(k.remark||'').trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
+    // นับเฉพาะข้อความที่ผู้ตรวจพิมพ์เอง — บรรทัด "ตม. ประจำจุด" ไม่ถือเป็นเหตุผลของ Not Ready
+    if(kioskClass(k)==='notready'&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
   if(!$('pubWebPc').checked&&!($('pubWebPcRemark').value||'').trim())markBad($('pubWebPcRemark'));
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
@@ -1215,10 +1250,14 @@ function dRun(text,o){o=o||{};const sz=Math.round((o.sz||22)*1.3);const rpr='<w:
 function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 function dHeading(text){return dPar(text,{sz:26,bold:true,color:'1749c4',before:200,after:80});}
 function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
-function dTable(rows,widths,headerFill){
+// เซลล์ที่ส่งเป็น {xml:'<w:p>...'} จะใส่ XML นั้นตรง ๆ (ใช้กับเซลล์ที่มีทั้งข้อความและรูป)
+function dTable(rows,widths,headerFill,opts){
+  opts=opts||{};const va=opts.vAlign||'center';
   const grid='<w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
-  const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+(isH?'<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>':'')+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="center"/></w:tcPr>'+dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937'})+'</w:tc>';}).join('')+'</w:tr>';}).join('');
+  const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+(isH?'<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>':'')+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;
+    const inner=(cell&&typeof cell==='object'&&cell.xml!=null)?cell.xml:dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937'});
+    return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="'+(isH?'center':va)+'"/></w:tcPr>'+inner+'</w:tc>';}).join('')+'</w:tr>';}).join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+widths.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
 }
 function dKpiCards(cards){
@@ -1276,18 +1315,18 @@ async function docxImageFor(path){
   if(c&&c.bytes&&c.bytes.length)return c;
   return await fetchDocxImage(photoUrl(path));
 }
-// รวบรวม path รูปทุกช่องจากออบเจ็กต์รายงาน → [{label, path}]
+// รวบรวม path รูป "นอกตาราง Kiosk" — รูปของแต่ละเครื่องไปอยู่ในเซลล์หมายเหตุของเครื่องนั้นแล้ว
 function collectReportPhotos(r){
   const out=[],push=(label,arr)=>{(arr||[]).forEach(p=>{if(p)out.push({label,path:p});});};
   push('ข้อเสนอแนะ / ปัญหา', r.issue_photos||r.issuePhotos);
   push('Website (PC)', r.web_pc_photos||r.webPcPhotos);
   push('Website (Mobile)', r.web_mobile_photos||r.webMobilePhotos);
-  (r.kiosks||[]).forEach(k=>push((k.kiosk_id||'Kiosk')+' — หมายเหตุ', k.remark_photos));
   return out;
 }
-// XML รูปภาพ inline ขนาด cx,cy (EMU)
-function dPhotoXml(rid,cx,cy,pid,name){
-  return '<w:p><w:pPr><w:spacing w:before="20" w:after="80"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+pid+'" name="'+name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+pid+'" name="'+name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+rid+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+// XML รูปภาพ inline ขนาด cx,cy (EMU) — o.before/o.after ปรับระยะห่าง, o.align จัดตำแหน่ง
+function dPhotoXml(rid,cx,cy,pid,name,o){
+  o=o||{};
+  return '<w:p><w:pPr><w:spacing w:before="'+(o.before==null?20:o.before)+'" w:after="'+(o.after==null?80:o.after)+'"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+'</w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+pid+'" name="'+name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+pid+'" name="'+name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+rid+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
 }
 // DOCX รายงานการตรวจสอบ 1 ฉบับ (สำหรับส่งอีเมลให้เจ้าหน้าที่ OSO จากฟอร์มสาธารณะ) — รูปแบบทางการ พอดี A4
 async function buildSingleReportDocxBlob(r){
@@ -1327,37 +1366,64 @@ async function buildSingleReportDocxBlob(r){
     const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
     body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000]);
   }
+  /* ---- ตัวช่วยฝังรูปลงเอกสาร (ใช้ร่วมกันทั้งเซลล์หมายเหตุรายเครื่อง และภาพประกอบท้ายรายงาน) ----
+     ทุกรูปผ่านทางนี้ทางเดียว จึงนับเลขไฟล์/relationship ต่อเนื่องกันได้ ไม่ชนกัน
+     ถ้ารูปใดฝังไม่ได้ ก็ข้ามไปเฉย ๆ (นับไว้เตือนท้ายสุด) เอกสารยังออกได้ครบ */
+  let photoMedia=[],photoRelsXml='',photoSeq=0,photoFailed=0;
+  async function embedPhoto(path,maxPx,opt){
+    try{
+      const img=await docxImageFor(path);
+      if(!img||!img.bytes||!img.bytes.length){photoFailed++;return '';}
+      const n=++photoSeq,fname='photo-'+n+'.jpg',rid='rIdPhoto'+n,pid=200+n;
+      const w0=img.w||320,h0=img.h||240;
+      const wpx=Math.min(w0,maxPx),hpx=Math.max(1,Math.round(h0*(wpx/w0)));
+      photoMedia.push({name:fname,bytes:img.bytes});
+      photoRelsXml+='<Relationship Id="'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fname+'"/>';
+      return dPhotoXml(rid,Math.round(wpx*9525),Math.round(hpx*9525),pid,fname,opt);
+    }catch(e){photoFailed++;return '';}
+  }
   body+=dHeading('Kiosk Checklist (IMM001–IMM020)');
-  const krows=(r.kiosks||[]).map(k=>{const cls=kioskClass(k),wl=waitLabels(k).join(', ');
+  /* ช่อง Remark ของแต่ละเครื่องรวมทุกอย่างไว้ในเซลล์เดียว เรียงจากบนลงล่าง:
+       1) เจ้าหน้าที่ ตม. ประจำจุด (มี/ไม่มี)   2) ข้อความหมายเหตุที่ผู้ตรวจพิมพ์   3) รูปที่ถ่ายไว้ */
+  const KW=[1000,900,1150,950,2100,3900];   // รวม 10000 dxa พอดีความกว้างพิมพ์ A4
+  const KPHOTO_PX=230;                      // รูปกว้างสุดในเซลล์ Remark (≈ 2.4 นิ้ว)
+  const krows=[];
+  for(const k of (r.kiosks||[])){
+    const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>k.occupied?'—':(subStateOf(k,t)==='wait'?'⏳':(subStateOf(k,t)==='ok'?yes:no));
     const status=cls==='occupied'?'เครื่องไม่ว่าง (รอตรวจซ้ำ)'
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
       :cls==='usable_wait'?('พร้อมใช้งาน · รอตรวจ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
       :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
-    return [k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),status,k.remark||''];});
-  body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark']].concat(krows),[1300,1300,1500,1300,1500,3100]);
+    const sp=immSplit(k.remark);
+    let cell='';
+    if(sp.imm==='yes')cell+=dCellPar(yes+' มีเจ้าหน้าที่ ตม. ประจำจุด',{sz:17,bold:true,color:'3730a3'});
+    else if(sp.imm==='no')cell+=dCellPar(no+' ไม่มีเจ้าหน้าที่ ตม. ประจำจุด',{sz:17,bold:true,color:'b91c1c'});
+    const txt=(sp.text||'').trim();
+    if(txt)cell+=dCellPar(txt,{sz:20,color:'1f2937'});
+    const pics=(k.remark_photos||[]).filter(Boolean);
+    for(let i=0;i<pics.length;i++)
+      cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:60,after:i===pics.length-1?20:40});
+    krows.push([k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
+  }
+  body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top'});
   body+=dHeading('Website / Mobile Checklist');
   body+=dTable([['Platform','System Ready','Remark'],
     ['Website (PC)',r.webPc?yes:no,r.webPcRemark||''],
     ['Website (Mobile)',r.webMobile?yes:no,r.webMobileRemark||'']],[2700,2200,5100]);
   body+=dHeading('รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ');
   body+=dPar(r.issue||'— ไม่มี —',{fill:'F4F6F9'});
-  // ---- ภาพประกอบ: ฝังรูปจาก Storage (ทั้งบล็อกอยู่ใน try/catch — ถ้าพลาดก็ออกรายงานได้โดยไม่มีรูป) ----
-  let photoMedia=[],photoRelsXml='';
+  // ---- ภาพประกอบส่วนที่ไม่ใช่รายเครื่อง (ข้อเสนอแนะ / Website) — รูปของ Kiosk อยู่ในตารางข้างบนแล้ว ----
   try{
-    const photos=collectReportPhotos(r);let gallery='',n=0,failed=0;
-    for(const ph of photos){
-      const img=await docxImageFor(ph.path);if(!img){failed++;continue;}
-      n++;const fname='photo-'+n+'.jpg',rid='rIdPhoto'+n,pid=200+n;
-      const wpx=Math.min(img.w||320,340),hpx=Math.round((img.h||240)*(wpx/(img.w||320)));
-      gallery+=dPar(ph.label,{sz:18,bold:true,color:'0b2f6b',after:20})+dPhotoXml(rid,Math.round(wpx*9525),Math.round(Math.max(1,hpx)*9525),pid,fname);
-      photoMedia.push({name:fname,bytes:img.bytes});
-      photoRelsXml+='<Relationship Id="'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fname+'"/>';
+    let gallery='';
+    for(const ph of collectReportPhotos(r)){
+      const xml=await embedPhoto(ph.path,340);
+      if(xml)gallery+=dPar(ph.label,{sz:18,bold:true,color:'0b2f6b',after:20})+xml;
     }
-    if(n)body+=dHeading('ภาพประกอบ (หมายเหตุ / ข้อเสนอแนะ)')+gallery;
-    // เดิม: รูปหายเงียบ ๆ ไม่มีใครรู้ — ตอนนี้เตือนให้เห็นว่าแนบรูปไม่ครบ
-    if(failed)toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ '+failed+' รูป (รายงานส่งได้ แต่ไม่มีรูปครบ)',true);
-  }catch(e){photoMedia=[];photoRelsXml='';toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ (ส่งรายงานแบบไม่มีรูป)',true);}
+    if(gallery)body+=dHeading('ภาพประกอบ (ข้อเสนอแนะ / Website)')+gallery;
+  }catch(e){}
+  // เดิม: รูปหายเงียบ ๆ ไม่มีใครรู้ — ตอนนี้เตือนให้เห็นว่าแนบรูปไม่ครบ
+  if(photoFailed)toast('แนบรูปลงไฟล์รายงานไม่สำเร็จ '+photoFailed+' รูป (รายงานส่งได้ แต่ไม่มีรูปครบ)',true);
   const hasLogo=!!(logos&&logos.tdac&&logos.somapa);
   const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="850" w:bottom="900" w:left="850"/></w:sectPr></w:body></w:document>';
   const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
