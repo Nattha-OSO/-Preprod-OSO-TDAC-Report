@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='24';
+const APP_VERSION='25';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
@@ -159,11 +159,9 @@ async function changePassword(){
 function kioskRowsHtml(){
   return KIOSKS.map(id=>'<tr class="krow" data-row="'+id+'"><td class="kid">'+id+'</td>'+
     '<td><div class="checks">'+
-      SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="no" onclick="cycleSub(this)" title="กดสลับ: ○ ยังไม่ตรวจ → ✓ พร้อม → ⏳ รอตรวจซ้ำ"><span class="subl">'+s.l+'</span></button>').join('')+
+      SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังตรวจไม่ได้ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
-      '<button type="button" class="btn-occ" data-kiosk="'+id+'" onclick="kioskToggleOccupied(this)" title="เครื่องไม่ว่างตอนไปตรวจ — รอตรวจซ้ำ">⏳ ไม่ว่าง</button>'+
       '<button type="button" class="btn-imm" data-kiosk="'+id+'" data-state="" onclick="cycleImm(this)" title="กดสลับ: ยังไม่ระบุ → มีเจ้าหน้าที่ ตม. ประจำจุด → ไม่มี">'+IMM_LABEL['']+'</button>'+
-      '<input type="checkbox" class="occ-flag" data-kiosk="'+id+'" data-type="occupied" hidden>'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
       '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
     '</div></td>'+
@@ -332,7 +330,6 @@ async function snapPhoto(){
   const f=new File([blob],'camera-'+Date.now()+'.jpg',{type:'image/jpeg'});
   await addPhotos([f],scope,bodyId);
 }
-const OCC_REMARK='เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน) — รอตรวจซ้ำ';
 /* ---------- เจ้าหน้าที่ ตม. ประจำจุด ----------
    เก็บเป็น "บรรทัดแรกของหมายเหตุ" ของเครื่องนั้น ๆ (IMM001–IMM020)
    จึงไปอยู่ในรายงาน/ฐานข้อมูลเดิมได้ทันที ไม่ต้องเพิ่มคอลัมน์ใหม่
@@ -366,33 +363,6 @@ function setRecheck(body,id,val){
   const inp=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(inp)inp.value=val||'';
   const chip=body.querySelector('.recheck-time[data-kiosk="'+id+'"]');
   if(chip){if(val){chip.textContent='↩ ตรวจซ้ำ '+val;chip.style.display='';}else{chip.textContent='';chip.style.display='none';}}
-}
-// สลับสถานะ "เครื่องไม่ว่าง/รอตรวจซ้ำ" ของแถว
-function kioskToggleOccupied(btn){
-  const body=btn.closest('tbody'),id=btn.dataset.kiosk,flag=body.querySelector('.occ-flag[data-kiosk="'+id+'"]');
-  const on=!(flag&&flag.checked);if(flag)flag.checked=on;
-  applyOccupied(body,id,on,true);
-  // เปิด = แท็กไม่ว่าง (ยังไม่ตรวจซ้ำ ล้างเวลา) · ปิด = เพิ่งกลับมาตรวจซ้ำ → ลงเวลาปัจจุบันอัตโนมัติ
-  setRecheck(body,id,on?'':nowHM());
-  if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
-}
-/* ปรับ UI ของแถวตามสถานะ occupied
-   กดเปิด = ตั้งรายการที่ยังไม่ ✓ ให้เป็น ⏳ ทั้งหมด (ยังกดได้) แล้วผู้ตรวจเลื่อนเป็น ✓ เฉพาะที่ตรวจได้จริง
-   autofill=false (ตอน setKiosks() restore ข้อมูลเดิม) จะไม่แตะสถานะรายการย่อย */
-function applyOccupied(body,id,on,autofill){
-  const chips=subChips(body,id),btnOcc=body.querySelector('.btn-occ[data-kiosk="'+id+'"]'),
-    r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]'),
-    tr=body.querySelector('tr[data-row="'+id+'"]');
-  if(autofill){
-    if(on){
-      chips.forEach(b=>{if(b&&b.dataset.state!=='ok')b.dataset.state='wait';});
-      if(r&&!r.value.trim()){r.value=OCC_REMARK;autoGrow(r);}
-    }else if(r&&r.value.trim()===OCC_REMARK){r.value='';autoGrow(r);}
-  }
-  if(on&&r)r.classList.remove('invalidf');
-  if(btnOcc){btnOcc.classList.toggle('on',on);btnOcc.textContent=on?'⏳ รอตรวจซ้ำ':'⏳ ไม่ว่าง';}
-  if(tr)tr.classList.toggle('recheck',on);
-  syncRowBtn(body,id);
 }
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 function initPublicForm(){
@@ -435,7 +405,7 @@ function clearDraft(){try{localStorage.removeItem(DRAFT_KEY);}catch(e){}hideResu
 function draftHasProgress(d){
   if(!d)return false;
   if((d.officer||'').trim()||(d.issue||'').trim()||(d.webPcRemark||'').trim()||(d.webMobileRemark||'').trim()||d.webPc||d.webMobile)return true;
-  return (d.kiosks||[]).some(k=>k.occupied||k.system_ready||k.rustdesk_ready||k.network_ready||(k.remark||'').trim());
+  return (d.kiosks||[]).some(kioskTouched);
 }
 function hookDraftInputs(){
   ['pubShift','pubOfficer','pubEmail','pubIssue','pubStart','pubEnd','pubWebPcRemark','pubWebMobileRemark'].forEach(id=>{const el=$(id);if(el&&!el._dh){el._dh=1;el.addEventListener('input',scheduleDraftSave);el.addEventListener('change',scheduleDraftSave);}});
@@ -463,8 +433,8 @@ function applyDraft(d){
 }
 function showResumeBar(d){
   const bar=$('pubResumeBar');if(!bar)return;
-  const cnt=(d.kiosks||[]).filter(k=>k.occupied).length;
-  bar.innerHTML='<span>↩️ กู้ข้อมูลที่กรอกค้างไว้ให้อัตโนมัติแล้ว'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ รอตรวจซ้ำ '+cnt+' เครื่อง':'')+' · ตรวจต่อได้เลย (ช่อง “ตรวจเสร็จเวลา” เว้นไว้ให้กรอกใหม่)</span>'+
+  const cnt=(d.kiosks||[]).reduce((a,k)=>a+kioskWaitItems(k).length,0);
+  bar.innerHTML='<span>↩️ กู้ข้อมูลที่กรอกค้างไว้ให้อัตโนมัติแล้ว'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ ยังตรวจไม่ได้ '+cnt+' รายการ':'')+' · ตรวจต่อได้เลย (ช่อง “ตรวจเสร็จเวลา” เว้นไว้ให้กรอกใหม่)</span>'+
     '<span class="resume-actions"><button type="button" class="btn" onclick="discardDraft()">เริ่มรายงานใหม่ (ล้างข้อมูล)</button></span>';
   bar.style.display='flex';
 }
@@ -480,7 +450,7 @@ function summarizeFormFilled(){
   if(g('pubStart')||g('pubEnd'))n.push('เวลาตรวจ');
   if(g('pubIssue'))n.push('ปัญหา/ข้อเสนอแนะ');
   const ks=readKiosks('pubKioskBody')||[];
-  const kn=ks.filter(k=>k.occupied||k.system_ready||k.rustdesk_ready||k.network_ready||(k.remark||'').trim()).length;
+  const kn=ks.filter(kioskTouched).length;
   if(kn)n.push('Kiosk ที่กรอกแล้ว '+kn+' เครื่อง');
   if(($('pubWebPc')&&$('pubWebPc').checked)||($('pubWebMobile')&&$('pubWebMobile').checked)||g('pubWebPcRemark')||g('pubWebMobileRemark'))n.push('Website / Mobile');
   const pn=Object.keys(photoState||{}).reduce((a,s)=>a+((photoState[s]||[]).length),0);
@@ -536,14 +506,15 @@ function togglePubWeb(cb,lblId){const l=$(lblId);if(l)l.classList.toggle('on',cb
 // รายการย่อยของแถว (ปุ่ม tri-state) + สถานะปัจจุบัน
 function subChips(body,id){return SUBSYS.map(s=>body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]'));}
 function subStateEl(body,id,t){const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+t+'"]');return b?(b.dataset.state||'no'):'no';}
-// กดสลับสถานะรายการย่อย: no → ok → wait → no
+/* กดสลับสถานะรายการย่อย: ⏳ ยังตรวจไม่ได้ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้ → ⏳
+   ⏳ คือค่าตั้งต้นของทุกหัวข้อ = "ยังไม่ได้ตรวจ/ตรวจไม่ได้" ไม่ถูกนับทั้งตัวตั้งและตัวหาร
+   ✘ คือ "ตรวจแล้วใช้งานไม่ได้" เท่านั้น */
 function cycleSub(btn){
-  if(btn.classList.contains('dis'))return;
-  const order=['no','ok','wait'],cur=btn.dataset.state||'no',next=order[(order.indexOf(cur)+1)%3];
+  const order=['wait','ok','no'],cur=btn.dataset.state||'wait',next=order[(order.indexOf(cur)+1)%3];
   btn.dataset.state=next;
   const body=btn.closest('tbody'),id=btn.dataset.kiosk;
-  // เปลี่ยนจาก ⏳ รอตรวจซ้ำ → ✓ พร้อม = เพิ่งกลับมาตรวจซ้ำเสร็จ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
-  if(cur==='wait'&&next==='ok'){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
+  // เปลี่ยนจาก ⏳ ยังตรวจไม่ได้ → ✓/✘ = เพิ่งกลับมาตรวจได้ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
+  if(cur==='wait'&&next!=='wait'){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
   syncRowBtn(body,id);
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
@@ -555,15 +526,16 @@ function syncRowBtn(body,id){
   const tr=body.querySelector('tr[data-row="'+id+'"]');
   if(tr){tr.classList.toggle('ready',allOk);tr.classList.toggle('wait',!allOk&&anyWait&&!anyNo);}
 }
+// กด Check All = ✓ ทั้งแถว · กดซ้ำ = กลับไป ⏳ ทั้งแถว (ยังไม่ได้ตรวจ)
 function kioskCheckAll(btn){
   const body=btn.closest('tbody'),id=btn.dataset.kiosk,chips=subChips(body,id);
   const allOk=chips.every(b=>b&&b.dataset.state==='ok');
-  chips.forEach(b=>{if(b)b.dataset.state=allOk?'no':'ok';});
+  chips.forEach(b=>{if(b)b.dataset.state=allOk?'wait':'ok';});
+  if(!allOk){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 function readKiosks(bodyId){
   const body=$(bodyId);return KIOSKS.map(id=>{
-    const occ=!!((body.querySelector('.occ-flag[data-kiosk="'+id+'"]')||{}).checked);
     const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');
     const st=t=>subStateEl(body,id,t);
     const wait=SUBSYS.filter(s=>st(s.t)==='wait').map(s=>s.t);
@@ -572,29 +544,29 @@ function readKiosks(bodyId){
     const imm=((body.querySelector('.btn-imm[data-kiosk="'+id+'"]')||{}).dataset||{}).state||'';
     return {kiosk_id:id,
       system_ready:st('system')==='ok',rustdesk_ready:st('rustdesk')==='ok',network_ready:st('network')==='ok',
-      occupied:occ,recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
+      occupied:wait.length===SUBSYS.length,   // คงคอลัมน์เดิมไว้: ⏳ ครบทุกหัวข้อ = ยังไม่ได้ตรวจเครื่องนี้เลย
+      recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
       remark:immJoin(imm,rem)||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
   const body=$(bodyId),map={};(arr||[]).forEach(k=>map[k.kiosk_id]=k);
-  KIOSKS.forEach(id=>{const k=map[id]||{},wait=new Set(k.recheck_items||[]);
-    SUBSYS.forEach(s=>{const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(b)b.dataset.state=wait.has(s.t)?'wait':(k[s.t+'_ready']?'ok':'no');});
+  KIOSKS.forEach(id=>{const k=map[id]||{};
+    SUBSYS.forEach(s=>{const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(b)b.dataset.state=subStateOf(k,s.t);});
     // แยก "มี/ไม่มี ตม. ประจำจุด" ออกจากบรรทัดแรกของหมายเหตุ กลับไปเป็นปุ่ม + ข้อความ
     const sp=immSplit(k.remark);
     setImm(body,id,sp.imm);
     const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=sp.text||'';
-    const flag=body.querySelector('.occ-flag[data-kiosk="'+id+'"]'),occ=!!k.occupied;if(flag)flag.checked=occ;
-    applyOccupied(body,id,occ,false);   // restore สถานะ occupied โดยไม่แตะ remark ที่เก็บไว้
-    setRecheck(body,id,occ?'':(k.recheck_at||''));   // เครื่องที่ยัง occupied ไม่แสดงเวลา, ที่ตรวจซ้ำแล้วแสดงเวลาเดิม
+    setRecheck(body,id,k.recheck_at||'');
     photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
     syncRowBtn(body,id);
   });
 }
-/* ---- สถานะรายการย่อยจากออบเจ็กต์ kiosk (บูลีน + recheck_items) ----
-   หลักการ: เครื่องที่ผู้โดยสารกำลังใช้งาน = System/Network ทำงานปกติ ตรวจไม่ได้เฉพาะ RustDesk
-   flag occupied จึงเป็น "บริบท" (เหตุผล + ไฮไลต์แถว) ไม่ใช่สถานะที่ล้างทั้งเครื่องอีกต่อไป */
-// แถว occupied แบบเก่า (ก่อน v24) ถูกบันทึกเป็น false ทั้ง 3 รายการ → ต้องอ่านว่า "ยังไม่ได้ตรวจ" ไม่ใช่ "เสีย"
+/* ---- สถานะรายหัวข้อจากออบเจ็กต์ kiosk (บูลีน + recheck_items) ----
+   ⏳ wait = ยังตรวจไม่ได้ (เช่น RustDesk ตอนผู้โดยสารใช้เครื่องอยู่) — ไม่นับทั้งตัวตั้งและตัวหาร
+   ✓ ok   = ตรวจแล้วพร้อมใช้งาน
+   ✘ no   = ตรวจแล้วใช้งานไม่ได้ */
+// แถวเก่าที่บันทึกตอนยังมีปุ่ม "ไม่ว่าง" (บูลีน false ทั้ง 3 + recheck_items ว่าง) = ยังไม่ได้ตรวจ ไม่ใช่เสีย
 function isLegacyOccupied(k){
   return !!k.occupied&&!((k.recheck_items||[]).length)&&!k.system_ready&&!k.rustdesk_ready&&!k.network_ready;
 }
@@ -614,23 +586,34 @@ function kioskClass(k){
   if(st.some(s=>s==='wait'))return 'usable_wait';
   return 'ready';
 }
+// เครื่องนี้ "ถูกแตะ" แล้วหรือยัง — ใช้ตัดสินว่ามีข้อมูลค้างในร่าง (⏳ ล้วน + ไม่มีหมายเหตุ = ยังไม่ได้กรอก)
+function kioskTouched(k){return !!k&&(subStatesOf(k).some(s=>s!=='wait')||!!(k.remark||'').trim()||!!(k.remark_photos||[]).length);}
 // เครื่อง "พร้อมใช้งาน" = ไม่มีรายการเสีย และตรวจได้อย่างน้อย 1 รายการ (รวมเครื่องที่ยังรอตรวจบางรายการ — ตามนโยบายนับเป็นใช้งานได้)
 function kioskReadyCount(arr){return (arr||[]).filter(k=>{const c=kioskClass(k);return c==='ready'||c==='usable_wait';}).length;}
 function kioskPendingCount(arr){return (arr||[]).filter(k=>kioskClass(k)==='occupied').length;}
-/* สรุปตัวเลขความพร้อม — 3 ตัวชี้วัด
-   pct          ความพร้อมใช้งาน      = เครื่องที่ไม่มีรายการเสีย / เครื่องทั้งหมด
-   coveragePct  ความครบถ้วนการตรวจ   = รายการที่ตรวจได้ / รายการทั้งหมด (20 เครื่อง × 3 ระบบ)
-   checkedPct   ผ่านเฉพาะที่ตรวจได้   = รายการที่ผ่าน / รายการที่ตรวจได้ */
+/* สรุปตัวเลขความพร้อม
+   per[]        % รายหัวข้อ          = เครื่องที่หัวข้อนั้นผ่าน / เครื่องที่ "ตรวจหัวข้อนั้นได้"  ← ตัวหารแยกรายหัวข้อ
+   pct          ความพร้อมใช้งาน      = เครื่องที่ไม่มีหัวข้อเสีย / เครื่องทั้งหมด
+   coveragePct  ความครบถ้วนการตรวจ   = หัวข้อที่ตรวจได้ / หัวข้อทั้งหมด (20 เครื่อง × 3 ระบบ)
+   checkedPct   ผ่านเฉพาะที่ตรวจได้   = หัวข้อที่ผ่าน / หัวข้อที่ตรวจได้
+   ทุกตัวตัด ⏳ ออกจากตัวหาร — เครื่องที่ยังตรวจหัวข้อนั้นไม่ได้ ไม่ถ่วง % ของหัวข้อนั้น */
 function readinessStats(arr,total){
   const t=total||KIOSK_COUNT;let full=0,wait=0,fail=0,occ=0,itemsOk=0,itemsWait=0,itemsNo=0;
+  const per=SUBSYS.map(s=>({t:s.t,l:s.l,ok:0,no:0,wait:0}));
   (arr||[]).forEach(k=>{
     const c=kioskClass(k);if(c==='ready')full++;else if(c==='usable_wait')wait++;else if(c==='notready')fail++;else occ++;
-    subStatesOf(k).forEach(s=>{if(s==='ok')itemsOk++;else if(s==='wait')itemsWait++;else itemsNo++;});
+    subStatesOf(k).forEach((s,i)=>{
+      if(s==='ok'){itemsOk++;per[i].ok++;}else if(s==='wait'){itemsWait++;per[i].wait++;}else{itemsNo++;per[i].no++;}
+    });
   });
+  // หัวข้อที่ยังไม่ได้กรอกเลย (แถวหายไปจาก arr) นับเป็น ⏳ เพื่อให้ตัวหารรวมเท่ากับ 20 เครื่องเสมอ
+  const missing=Math.max(0,t-(arr||[]).length);
+  if(missing){occ+=missing;itemsWait+=missing*SUBSYS.length;per.forEach(p=>p.wait+=missing);}
+  per.forEach(p=>{p.checked=p.ok+p.no;p.total=t;p.pct=p.checked>0?Math.round(p.ok/p.checked*100):null;});
   const usable=full+wait,checked=t-occ;
   const itemsTotal=t*SUBSYS.length,itemsChecked=Math.max(0,itemsTotal-itemsWait);
   return {full,wait,usable,ready:usable,notReady:fail,occupied:occ,pending:occ,
-    needRecheck:occ+wait,checked,
+    needRecheck:occ+wait,checked,per,
     itemsTotal,itemsChecked,itemsOk,itemsWait,itemsNo,
     pct:t?Math.round(usable/t*100):0,
     coveragePct:itemsTotal?Math.round(itemsChecked/itemsTotal*100):null,
@@ -638,12 +621,21 @@ function readinessStats(arr,total){
 }
 function updatePubSummary(){
   const ks=readKiosks('pubKioskBody'),s=readinessStats(ks,KIOSK_COUNT);
-  $('pubChipReady').textContent=s.usable;$('pubChipNot').textContent=s.notReady;
   const setChip=(id,txt,tip)=>{const e=$(id);if(!e)return;e.textContent=txt;const c=e.closest('.sumchip');if(c)c.title=tip||'';};
-  setChip('pubChipPct',s.pct+'%',s.usable+' / '+KIOSK_COUNT+' เครื่อง');
+  const setSub=(id,txt)=>{const e=$(id);if(e)e.textContent=txt;};
+  // การ์ดรายหัวข้อ — ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก) เช่น RustDesk 19/19 เมื่อมี 1 เครื่องยังตรวจไม่ได้
+  s.per.forEach(p=>{
+    const key=p.t.charAt(0).toUpperCase()+p.t.slice(1);
+    setChip('pubChipPct'+key,(p.pct==null?'—':p.pct+'%'),
+      p.l+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังตรวจไม่ได้ '+p.wait+' (จาก '+p.total+' เครื่อง)');
+    setSub('pubChipSub'+key,p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):''));
+  });
   setChip('pubChipRecheck',s.itemsWait,'รายการที่ยังตรวจไม่ได้ '+s.itemsWait+' รายการ (ใน '+s.needRecheck+' เครื่อง)');
+  setSub('pubChipRecheckSub',s.itemsWait?(s.per.filter(p=>p.wait).map(p=>p.l).join(' · ')):'ตรวจครบทุกรายการ');
   setChip('pubChipPctCoverage',(s.coveragePct==null?'—':s.coveragePct+'%'),s.itemsChecked+' / '+s.itemsTotal+' รายการ');
-  setChip('pubChipPctChecked',(s.checkedPct==null?'—':s.checkedPct+'%'),s.itemsOk+' / '+s.itemsChecked+' รายการ');
+  setSub('pubChipCoverageSub',s.itemsChecked+'/'+s.itemsTotal+' รายการ');
+  setChip('pubChipReady',s.usable,'พร้อมใช้งาน '+s.usable+' · Not Ready '+s.notReady+' (จาก '+KIOSK_COUNT+' เครื่อง)');
+  setSub('pubChipReadySub','Not Ready '+s.notReady+' เครื่อง');
   const setWeb=(id,ok)=>{const e=$(id);if(e){e.textContent=ok?'Ready':'Not Ready';e.style.color=ok?'var(--green)':'var(--rose)';}};
   setWeb('pubChipWebPc',!!($('pubWebPc')&&$('pubWebPc').checked));setWeb('pubChipWebMobile',!!($('pubWebMobile')&&$('pubWebMobile').checked));
 }
@@ -664,7 +656,8 @@ function inspectionTimeline(r){
   const waitMin=(totalMin!=null&&firstPassMin!=null)?Math.max(0,totalMin-firstPassMin):(rechecks.length?null:0);
   rechecks.forEach(x=>{x.waitMin=(endRel!=null)?Math.max(0,x.rel-endRel):null;});
   return {start:r.inspectStart||'',firstPassEnd:r.inspectEnd||'',rechecks,
-    pendingNow:(r.kiosks||[]).filter(k=>kioskWaitItems(k).length).length,   // เครื่องที่ยังมีรายการตรวจไม่ได้ (รอกลับไปตรวจซ้ำ)
+    pendingNow:(r.kiosks||[]).filter(k=>kioskWaitItems(k).length).length,            // เครื่องที่ยังมีหัวข้อ ⏳ ค้างอยู่
+    itemsWaitNow:(r.kiosks||[]).reduce((a,k)=>a+kioskWaitItems(k).length,0),         // จำนวนหัวข้อ ⏳ รวมทุกเครื่อง
     completeAt:completeRel==null?'':minToHm(completeRel),crossedMidnight:completeRel!=null&&completeRel>=1440,
     totalMin,firstPassMin,waitMin};
 }
@@ -674,12 +667,13 @@ function timelineHtml(r){
   if(!t.start&&!t.firstPassEnd&&!t.rechecks.length)return '';
   const line=(time,color,text)=>'<div style="display:flex;gap:9px;align-items:baseline"><span style="width:50px;flex:0 0 auto;font-weight:800;color:'+color+'">'+esc(time||'—')+'</span><span>'+text+'</span></div>';
   let rows=line(t.start,'var(--navy)','เริ่มตรวจ');
-  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+((t.rechecks.length+t.pendingNow)?' · รอตรวจซ้ำ '+(t.rechecks.length+t.pendingNow)+' เครื่อง':''));
+  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+(t.itemsWaitNow?' · ยังตรวจไม่ได้ '+t.itemsWaitNow+' รายการ':''));
   t.rechecks.forEach(x=>{rows+=line(x.at,'#b45309','↩ ตรวจซ้ำ '+esc(x.id)+(x.waitMin!=null?' <span class="mini">(รอ '+x.waitMin+' นาที)</span>':''));});
   let foot='';
-  if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.pendingNow+' เครื่องรอตรวจซ้ำ — ยังตรวจไม่ครบ</div>';
-  else if(t.completeAt)foot+='<div style="margin-top:5px;color:var(--green);font-weight:800">✅ ตรวจครบทุกเครื่อง: '+t.completeAt+' น.'+(t.crossedMidnight?' (วันถัดไป)':'')+'</div>';
+  if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.itemsWaitNow+' รายการที่ตรวจไม่ได้ (ใน '+t.pendingNow+' เครื่อง) — ยังตรวจไม่ครบ</div>';
+  else if(t.completeAt)foot+='<div style="margin-top:5px;color:var(--green);font-weight:800">✅ ตรวจครบทุกรายการ: '+t.completeAt+' น.'+(t.crossedMidnight?' (วันถัดไป)':'')+'</div>';
   if(t.pendingNow===0&&t.totalMin!=null)foot+='<div style="font-weight:800;color:var(--navy)">⏱ ระยะเวลารวมจนตรวจครบ: '+fmtDur(t.totalMin)+'</div>';
+  // (ช่วงรอ/ตรวจซ้ำ = เวลาที่เสียไปกับการกลับไปตรวจหัวข้อที่ยัง ⏳ ในรอบแรก)
   if(t.firstPassMin!=null)foot+='<div class="mini">• รอบแรก (ลงมือตรวจ): '+fmtDur(t.firstPassMin)+(t.pendingNow===0&&t.waitMin?' · ช่วงรอ/ตรวจซ้ำ: '+fmtDur(t.waitMin):'')+'</div>';
   return '<div class="notice" style="flex-direction:column;align-items:stretch;gap:5px;background:#f6f9ff;border-color:#c7e0fb;margin:6px 0 14px"><b style="color:var(--navy)">⏱ ไทม์ไลน์การตรวจสอบ (เวลาจริงรวมการตรวจซ้ำ)</b>'+rows+foot+'</div>';
 }
@@ -705,10 +699,10 @@ async function submitPublic(){
   if(!officer)return toast('กรุณาเลือกชื่อเจ้าหน้าที่ผู้ตรวจสอบ',true);
   const kiosks=readKiosks('pubKioskBody'),st=readinessStats(kiosks,KIOSK_COUNT),ready=st.ready,pct=st.pct;
   const email=($('pubEmail').value||'').trim();
-  // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่ยังไม่ติ๊กครบ (Not Ready) — ยกเว้นเครื่องที่ "รอตรวจซ้ำ" (มี remark อัตโนมัติอยู่แล้ว) ──
+  // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่มีหัวข้อ ✘ (Not Ready) — หัวข้อ ⏳ ยังตรวจไม่ได้ ไม่ต้องใส่ ──
   document.querySelectorAll('#pubForm .remark-input.invalidf').forEach(el=>el.classList.remove('invalidf'));
   let firstBad=null;const markBad=el=>{if(el){el.classList.add('invalidf');if(!firstBad)firstBad=el;}};
-  // บังคับ Remark เฉพาะเครื่องที่มีรายการ "เสีย/ไม่พร้อม" (Not Ready) — เครื่องที่ "รอตรวจซ้ำ" (⏳) ไม่ต้องใส่
+  // บังคับ Remark เฉพาะเครื่องที่มีหัวข้อ ✘ "ใช้งานไม่ได้" — หัวข้อ ⏳ "ยังตรวจไม่ได้" ไม่ต้องใส่
   kiosks.forEach(k=>{
     // นับเฉพาะข้อความที่ผู้ตรวจพิมพ์เอง — บรรทัด "ตม. ประจำจุด" ไม่ถือเป็นเหตุผลของ Not Ready
     if(kioskClass(k)==='notready'&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
@@ -717,8 +711,8 @@ async function submitPublic(){
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
   const inspectStart=($('pubStart').value||'').trim()||shiftStartTime(shift);
   const inspectEnd=($('pubEnd').value||'').trim()||null;
-  // ── ตรวจครบก่อนส่ง: ถ้ายังมีเครื่อง "รอตรวจซ้ำ" (ไม่ว่าง หรือรอตรวจบางรายการ) ให้เตือน (ส่งได้ แล้วกลับมาแก้รอบเดิมภายหลัง) ──
-  if(st.itemsWait>0&&!confirm('ยังมีรายการที่ "ตรวจไม่ได้" อีก '+st.itemsWait+' รายการ (ใน '+st.needRecheck+' เครื่อง) เช่น RustDesk ของเครื่องที่ผู้โดยสารกำลังใช้งาน\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาตรวจซ้ำแล้วส่งทับรายการเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
+  // ── ตรวจครบก่อนส่ง: ถ้ายังมีหัวข้อที่เป็น ⏳ (ยังตรวจไม่ได้) ให้เตือน (ส่งได้ แล้วกลับมาแก้รอบเดิมภายหลัง) ──
+  if(st.itemsWait>0&&!confirm('ยังมี ⏳ "ยังตรวจไม่ได้" อีก '+st.itemsWait+' รายการ ('+st.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')\n\nรายการ ⏳ จะไม่ถูกนับทั้งตัวตั้งและตัวหารของ % รายหัวข้อ\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาตรวจซ้ำแล้วส่งทับรายการเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
   const report={
     report_date:date,shift,officer,inspect_start:inspectStart,inspect_end:inspectEnd,
     web_pc_ready:!!$('pubWebPc').checked,web_pc_remark:($('pubWebPcRemark').value||'').trim()||null,
@@ -735,7 +729,7 @@ async function submitPublic(){
   if(email){
     const disp={date,shift,officer,kiosks,webPc:report.web_pc_ready,webPcRemark:report.web_pc_remark,
       webMobile:report.web_mobile_ready,webMobileRemark:report.web_mobile_remark,issue:report.issue_log,ready,total:KIOSK_COUNT,pct,
-      pending:st.pending,checkedPct:st.checkedPct,coveragePct:st.coveragePct,inspectStart,inspectEnd,
+      pending:st.pending,checkedPct:st.checkedPct,coveragePct:st.coveragePct,per:st.per,inspectStart,inspectEnd,
       issue_photos:report.issue_photos,web_pc_photos:report.web_pc_photos,web_mobile_photos:report.web_mobile_photos};
     btn.innerHTML='<span class="btn-spin"></span>กำลังสร้างไฟล์และส่งอีเมล...';
     try{
@@ -843,7 +837,7 @@ function buildReport(r,kmap){
     inspectStart:r.inspect_start||'',inspectEnd:r.inspect_end||'',
     webPc:!!r.web_pc_ready,webPcRemark:r.web_pc_remark||'',webMobile:!!r.web_mobile_ready,webMobileRemark:r.web_mobile_remark||'',
     issue:r.issue_log||'',issuePhotos:r.issue_photos||[],webPcPhotos:r.web_pc_photos||[],webMobilePhotos:r.web_mobile_photos||[],
-    kiosks:ks,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,
+    kiosks:ks,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,per:st?st.per:null,
     itemsWait:st?st.itemsWait:0,itemsChecked:st?st.itemsChecked:null,itemsTotal:st?st.itemsTotal:total*SUBSYS.length,itemsOk:st?st.itemsOk:null,
     submittedBy:r.submitted_by||''};
 }
@@ -876,8 +870,8 @@ function summarize(reports){
     SUBSYS.forEach((s,i)=>{if(st[i]==='no')h.fail[s.t]++;else if(st[i]==='wait'){h.wait[s.t]++;h.waitTotal++;}});}));
   health.forEach(h=>{h.pct=h.checks?Math.round((h.checks-h.notReady)/h.checks*100):null;});
   const problem=health.filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady);
-  // เครื่อง "ค้างตรวจซ้ำ" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
-  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:(kioskClass(k)==='occupied'?'เครื่องไม่ว่าง (ตรวจไม่ได้ทุกรายการ)':('รอตรวจ '+waitLabels(k).join(', ')))+(k.remark?(' — '+k.remark):'')})):[];
+  // หัวข้อที่ยัง ⏳ "ตรวจไม่ได้" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
+  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังตรวจไม่ได้: '+waitLabels(k).join(', '))+(k.remark?(' — '+k.remark):'')})):[];
   const shiftCounts={},officerCounts={};
   reports.forEach(r=>{shiftCounts[r.shift]=(shiftCounts[r.shift]||0)+1;officerCounts[r.officer]=(officerCounts[r.officer]||0)+1;});
   const webPcOk=reports.filter(r=>r.webPc).length,webMobileOk=reports.filter(r=>r.webMobile).length;
@@ -935,11 +929,12 @@ function renderDashboard(){
       stat('เครื่องที่ต้องติดตาม',(s.problem||[]).length,'เคยพบ Not Ready','var(--rose)')+
     '</div>'+
     '<div class="exec"><div class="panel"><div class="panel-head"><div><div class="panel-title">สถานะรอบล่าสุด</div><div class="mini">'+(L?(dispDate(L.date)+' · '+esc(L.shift)+' · '+esc(L.officer)):'ยังไม่มีรายงาน')+'</div></div>'+(L?'<button class="btn" onclick="openReportDetail('+L.id+')">ดูรายละเอียด</button>':'')+'</div>'+
-      '<div class="exec-grid"><div class="exec-item"><b>Kiosk พร้อมใช้งาน</b><span class="tag '+(L?pctTone(L.pct):'neutral')+'">'+(L?(L.ready+' / '+L.total):'-')+'</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+(L?L.pct:0)+'%"></div></div><div class="mini" style="margin-top:6px">Readiness '+(L?L.pct:0)+'%'+(L&&L.pending?' · เฉพาะที่ตรวจ '+(L.checkedPct==null?'—':L.checkedPct+'%')+' · ⏳ รอตรวจซ้ำ '+L.pending:'')+'</div></div>'+
+      '<div class="exec-grid"><div class="exec-item"><b>Kiosk พร้อมใช้งาน</b><span class="tag '+(L?pctTone(L.pct):'neutral')+'">'+(L?(L.ready+' / '+L.total):'-')+'</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+(L?L.pct:0)+'%"></div></div><div class="mini" style="margin-top:6px">Readiness '+(L?L.pct:0)+'%'+(L&&L.itemsWait?' · เฉพาะที่ตรวจได้ '+(L.checkedPct==null?'—':L.checkedPct+'%')+' · ⏳ ยังตรวจไม่ได้ '+L.itemsWait+' รายการ':'')+'</div>'+
+        (L&&L.per?'<div class="mini" style="margin-top:6px">'+L.per.map(p=>esc(p.l)+' '+(p.pct==null?'—':p.pct+'%')+' <span style="color:#94a3b8">('+p.ok+'/'+p.checked+')</span>').join(' · ')+'</div>':'')+'</div>'+
         '<div class="exec-item"><b>Website (PC)</b><span class="tag '+(L?(L.webPc?'excellent':'critical'):'neutral')+'">'+(L?(L.webPc?'System Ready':'Not Ready'):'-')+'</span><div class="mini" style="margin-top:8px">ภาพรวมพร้อม '+(s.webPcPct||0)+'% ของรอบ</div></div>'+
         '<div class="exec-item"><b>Website (Mobile)</b><span class="tag '+(L?(L.webMobile?'excellent':'critical'):'neutral')+'">'+(L?(L.webMobile?'System Ready':'Not Ready'):'-')+'</span><div class="mini" style="margin-top:8px">ภาพรวมพร้อม '+(s.webMobilePct||0)+'% ของรอบ</div></div></div></div>'+
       '<div class="panel"><div class="panel-head"><div><div class="panel-title">ข้อเสนอแนะถัดไป</div><div class="mini">แนวทางการติดตาม</div></div></div><div class="next-steps">'+dashSteps(s)+'</div></div></div>'+
-    '<div class="panel" style="margin-bottom:16px'+(rc.length?';border:1px solid #fcd34d;background:#fffbeb':'')+'"><div class="panel-head"><div><div class="panel-title">⏳ ค้างตรวจซ้ำ (เครื่องไม่ว่าง)</div><div class="mini">เครื่องที่ยังตรวจไม่ได้ในรอบล่าสุด — กลับไปตรวจแล้วกด "ตรวจซ้ำ" เพื่ออัปเดต</div></div>'+(rc.length?'<span class="tag" style="background:#fef3c7;color:#b45309">'+rc.length+' เครื่อง</span>':'')+'</div>'+
+    '<div class="panel" style="margin-bottom:16px'+(rc.length?';border:1px solid #fcd34d;background:#fffbeb':'')+'"><div class="panel-head"><div><div class="panel-title">⏳ หัวข้อที่ยังตรวจไม่ได้</div><div class="mini">รายการที่ยังตรวจไม่ได้ในรอบล่าสุด — กลับไปตรวจแล้วกด "ตรวจซ้ำ" เพื่ออัปเดต</div></div>'+(rc.length?'<span class="tag" style="background:#fef3c7;color:#b45309">'+rc.length+' เครื่อง</span>':'')+'</div>'+
       (rc.length?('<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>Kiosk</th><th>รอบ</th><th>ผู้ตรวจ</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>'+
         rc.map(x=>'<tr><td class="kid">'+esc(x.kioskId)+'</td><td class="nowrap">'+esc(dispDate(x.date))+' · '+esc(x.shift)+'</td><td>'+esc(x.officer)+'</td><td class="comment">'+(x.remark?esc(x.remark):'<span class="mini">—</span>')+'</td><td class="nowrap"><button class="btn primary" onclick="openReportDetail('+x.reportId+')">ตรวจซ้ำ</button></td></tr>').join('')+
         '</tbody></table></div>')
@@ -993,7 +988,7 @@ function renderReports(){
   const rows=(data.reports||[]).filter(r=>!f||((dispDate(r.date)+' '+r.shift+' '+r.officer+' '+r.issue).toLowerCase().includes(f)));
   $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาวันที่ รอบ ผู้ตรวจ หรือปัญหา"><span class="mini">'+(data.reports||[]).length+' รายงาน</span></div>'+
     '<div class="table-wrap"><table><thead><tr><th>วันที่ตรวจสอบ</th><th>รอบ</th><th>ผู้ตรวจสอบ</th><th>Kiosk พร้อม</th><th>Readiness</th><th>Web PC</th><th>Web Mobile</th><th>ปัญหา</th><th></th></tr></thead><tbody>'+
-    (rows.map(r=>'<tr><td class="nowrap">'+esc(dispDate(r.date))+'</td><td>'+esc(r.shift)+'</td><td>'+esc(r.officer)+'</td><td class="nowrap">'+r.ready+' / '+r.total+(r.pending?' <span class="mini" style="color:#b45309">(⏳'+r.pending+')</span>':'')+'</td><td><span class="tag '+pctTone(r.pct)+'">'+r.pct+'%</span>'+(r.pending?'<div class="mini">ตรวจได้ '+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div>':'')+'</td>'+
+    (rows.map(r=>'<tr><td class="nowrap">'+esc(dispDate(r.date))+'</td><td>'+esc(r.shift)+'</td><td>'+esc(r.officer)+'</td><td class="nowrap">'+r.ready+' / '+r.total+(r.itemsWait?' <span class="mini" style="color:#b45309">(⏳'+r.itemsWait+' รายการ)</span>':'')+'</td><td><span class="tag '+pctTone(r.pct)+'">'+r.pct+'%</span>'+(r.itemsWait?'<div class="mini">ตรวจได้ '+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div>':'')+'</td>'+
       '<td>'+badge(r.webPc)+'</td><td>'+badge(r.webMobile)+'</td><td class="comment">'+(r.issue?esc(r.issue.slice(0,60))+(r.issue.length>60?'…':''):'<span class="mini">—</span>')+'</td>'+
       '<td class="nowrap"><button class="btn icon" onclick="openReportDetail('+r.id+')" title="ดู/แก้ไข">👁</button>'+(can('delete_report')?' <button class="btn icon danger" onclick="deleteReport('+r.id+')" title="ลบ">x</button>':'')+'</td></tr>').join('')||'<tr><td colspan="9" class="empty">ยังไม่มีรายงาน</td></tr>')+
     '</tbody></table></div>';
@@ -1137,7 +1132,13 @@ function openReportDetail(id){
     '<div class="field"><label class="label">ตรวจเสร็จเวลา</label><input type="time" class="input" id="rdEnd" value="'+esc(r.inspectEnd||'')+'"'+dis+'></div></div>'+
     '<div class="field"><label class="label">ชื่อเจ้าหน้าที่ผู้ตรวจสอบ</label><select class="input" id="rdOfficer"'+dis+'>'+
       [r.officer].concat((data.officers||[]).filter(n=>n!==r.officer)).map(n=>'<option value="'+esc(n)+'"'+(n===r.officer?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'+
-    '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)"><div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div></div><div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div></div><div class="sumchip bad"><div class="n">'+r.notReady+'</div><div class="l">Not Ready</div></div><div class="sumchip"><div class="n" style="color:#b45309">'+(r.pending||0)+'</div><div class="l">รอตรวจซ้ำ</div></div><div class="sumchip pct"><div class="n">'+r.pct+'%</div><div class="l">ความพร้อมใช้งาน</div></div><div class="sumchip pct" title="'+(r.itemsChecked==null?'':r.itemsChecked+' / '+r.itemsTotal+' รายการ')+'"><div class="n">'+(r.coveragePct==null?'—':r.coveragePct+'%')+'</div><div class="l">ความครบถ้วนการตรวจ</div></div><div class="sumchip pct" title="'+(r.itemsOk==null?'':r.itemsOk+' / '+r.itemsChecked+' รายการ')+'"><div class="n">'+(r.checkedPct==null?'—':r.checkedPct+'%')+'</div><div class="l">ผ่านเฉพาะที่ตรวจได้</div></div>'+
+    '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)">'+
+      // % รายหัวข้อ — ตัวหารคือเครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก)
+      ((r.per||[]).map(p=>'<div class="sumchip pct" title="'+esc(p.l)+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังตรวจไม่ได้ '+p.wait+'"><div class="n">'+(p.pct==null?'—':p.pct+'%')+'</div><div class="l">'+esc(p.l)+'</div><div class="s">'+p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):'')+'</div></div>').join(''))+
+      '<div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div><div class="s">เครื่อง</div></div>'+
+      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังตรวจไม่ได้</div><div class="s">รายการ</div></div>'+
+      '<div class="sumchip pct" title="'+(r.itemsChecked==null?'':r.itemsChecked+' / '+r.itemsTotal+' รายการ')+'"><div class="n">'+(r.coveragePct==null?'—':r.coveragePct+'%')+'</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s">'+(r.itemsChecked==null?'—':r.itemsChecked+'/'+r.itemsTotal+' รายการ')+'</div></div>'+
+      '<div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div><div class="s">Not Ready '+r.notReady+' เครื่อง</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webMobile?'var(--green)':'var(--rose)')+'">'+(r.webMobile?'Ready':'Not Ready')+'</div><div class="l">Website (Mobile)</div></div></div>'+
     timelineHtml(r)+
@@ -1195,8 +1196,14 @@ async function deleteReport(id,fromModal){
 /* ---------- ส่งออก CSV ---------- */
 async function exportCSV(){
   await ensureFresh();
-  const head=['วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','รอตรวจซ้ำ','Kiosk ทั้งหมด','Readiness %','Readiness ตรวจได้ %','Web PC','Web Mobile','ปัญหา/ข้อเสนอแนะ','บันทึกเมื่อ'];
-  const rows=(data.reports||[]).map(r=>[dispDate(r.date),r.shift,r.officer,r.ready,r.pending||0,r.total,r.pct,(r.checkedPct==null?'':r.checkedPct),r.webPc?'Ready':'Not Ready',r.webMobile?'Ready':'Not Ready',r.issue||'',r.created]);
+  const head=['วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','Kiosk ทั้งหมด','ยังตรวจไม่ได้ (รายการ)','Readiness %','ความครบถ้วนการตรวจ %','ผ่านเฉพาะที่ตรวจได้ %']
+    .concat(SUBSYS.map(s=>s.l+' %'),SUBSYS.map(s=>s.l+' (ผ่าน/ตรวจได้)'),['Web PC','Web Mobile','ปัญหา/ข้อเสนอแนะ','บันทึกเมื่อ']);
+  const rows=(data.reports||[]).map(r=>{
+    const per=r.per||[];const pick=(t,f)=>{const p=per.filter(x=>x.t===t)[0];return p?f(p):'';};
+    return [dispDate(r.date),r.shift,r.officer,r.ready,r.total,r.itemsWait||0,r.pct,(r.coveragePct==null?'':r.coveragePct),(r.checkedPct==null?'':r.checkedPct)]
+      .concat(SUBSYS.map(s=>pick(s.t,p=>p.pct==null?'':p.pct)),SUBSYS.map(s=>pick(s.t,p=>p.ok+'/'+p.checked)),
+        [r.webPc?'Ready':'Not Ready',r.webMobile?'Ready':'Not Ready',r.issue||'',r.created]);
+  });
   const csv=[head].concat(rows).map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='OSO_TDAC_Reports_'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('ส่งออกแล้ว');
@@ -1391,7 +1398,7 @@ async function buildSingleReportDocxBlob(r){
   body+=dPar('Website (PC + Mobile) และ Kiosk · Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)',{sz:18,color:'374151',align:'center',after:180});
   const webReady=(r.webPc?1:0)+(r.webMobile?1:0),webPct=Math.round(webReady/2*100);
   const rst=readinessStats(r.kiosks||[],r.total||KIOSK_COUNT);
-  const pending=rst.occupied,notReady=rst.notReady,checkedPct=rst.checkedPct;
+  const notReady=rst.notReady,checkedPct=rst.checkedPct;
   const tStart=r.inspectStart||'',tEnd=r.inspectEnd||'';
   const timeRange=tStart?(tStart+(tEnd?' – '+tEnd+' น.':' น. (ยังไม่ระบุเวลาสิ้นสุด)')):(tEnd?'ถึง '+tEnd+' น.':'—');
   const TL=inspectionTimeline(r);
@@ -1401,23 +1408,33 @@ async function buildSingleReportDocxBlob(r){
     ['ช่วงเวลาการตรวจ',timeRange],
     ['ผู้ตรวจสอบ (OSO)',r.officer],
     ['ความพร้อมใช้งาน Kiosk',rst.pct+'%   ('+rst.usable+' / '+r.total+' เครื่องพร้อมใช้งาน)'],
-    ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%')+'   ('+rst.itemsChecked+' / '+rst.itemsTotal+' รายการ)'+(rst.itemsWait?'   ·  ตรวจไม่ได้ '+rst.itemsWait+' รายการ':'')],
+    // % รายหัวข้อ — ตัวหารคือเฉพาะเครื่องที่ตรวจหัวข้อนั้นได้ (⏳ ถูกตัดออกจากตัวหาร)
+    ['ความพร้อมรายหัวข้อ',rst.per.map(p=>p.l+' '+(p.pct==null?'—':p.pct+'%')+' ('+p.ok+'/'+p.checked+' ที่ตรวจได้)').join('   ·   ')],
+    ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%')+'   ('+rst.itemsChecked+' / '+rst.itemsTotal+' รายการ)'+(rst.itemsWait?'   ·  ยังตรวจไม่ได้ '+rst.itemsWait+' รายการ':'')],
     ['ผ่านเฉพาะที่ตรวจได้',(checkedPct==null?'—':checkedPct+'%')+'   ('+rst.itemsOk+' / '+rst.itemsChecked+' รายการ)'],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
-  kv.push(['ตรวจครบทุกเครื่อง', TL.pendingNow>0?('ยังรอตรวจซ้ำ '+TL.pendingNow+' เครื่อง'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
+  kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังตรวจไม่ได้ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
   body+=dKvTable(kv,3200,6800);
-  body+=dKpiCards([['Kiosks Total',String(r.total),'เครื่อง'],['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],['รอตรวจซ้ำ',String(rst.itemsWait),'รายการ',rst.itemsWait?'b9770e':'6a7d9b'],['ความพร้อมใช้งาน',rst.pct+'%',rst.usable+' / '+r.total+' เครื่อง'],['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%'),rst.itemsChecked+' / '+rst.itemsTotal+' รายการ']]);
+  // การ์ดแถวที่ 1 — % รายหัวข้อ (ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้) + ภาพรวมเครื่อง
+  body+=dKpiCards(rst.per.map(p=>[p.l,(p.pct==null?'—':p.pct+'%'),p.ok+' / '+p.checked+' ที่ตรวจได้'+(p.wait?('  ·  ⏳'+p.wait):''),
+      p.pct==null?'6a7d9b':p.pct>=100?'15803d':p.pct>=80?'b9770e':'c0392b'])
+    .concat([['Kiosks Total',String(r.total),'เครื่อง'],
+      ['ยังตรวจไม่ได้',String(rst.itemsWait),'รายการ',rst.itemsWait?'b9770e':'6a7d9b'],
+      ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%'),rst.itemsChecked+' / '+rst.itemsTotal+' รายการ']]));
+  body+=dKpiCards([['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],
+    ['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],
+    ['ความพร้อมใช้งาน',rst.pct+'%',rst.usable+' / '+r.total+' เครื่อง']]);
   body+=dKpiCards([
     ['Website (PC)',r.webPc?'✔':'✘',r.webPc?'System Ready':'Not Ready',r.webPc?'15803d':'c0392b'],
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
   if(TL.rechecks.length){
-    body+=dHeading('รายละเอียดเครื่องที่ตรวจซ้ำ (เครื่องที่ไม่ว่างตอนตรวจรอบแรก)');
+    body+=dHeading('รายละเอียดเครื่องที่กลับไปตรวจซ้ำ');
     const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
     body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000],null,{center:'all'});
   }
@@ -1449,9 +1466,9 @@ async function buildSingleReportDocxBlob(r){
   for(const k of (r.kiosks||[])){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>{const s=subStateOf(k,t);return s==='wait'?'⏳':(s==='ok'?yes:no);};
-    const status=cls==='occupied'?'เครื่องไม่ว่าง (ผู้โดยสารกำลังใช้งาน)'
+    const status=cls==='occupied'?'ยังตรวจไม่ได้ (ทุกรายการ)'
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
-      :cls==='usable_wait'?('พร้อมใช้งาน · รอตรวจ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
+      :cls==='usable_wait'?('พร้อมใช้งาน · ยังตรวจไม่ได้ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
       :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
     const sp=immSplit(k.remark);
     const immCell=sp.imm==='yes'?{xml:dCellPar(yes,{sz:22,bold:true,color:'15803d',align:'center'})}

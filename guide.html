@@ -484,15 +484,22 @@
         </div>
         <div style="margin-top:6px; font-size:11px; color:var(--muted);">
           💡 กด <strong>Check All</strong> เมื่อผ่านทั้ง 3 รายการ · กดปุ่มแต่ละรายการเพื่อสลับ
-          <strong>○ ยังไม่ตรวจ → ✓ พร้อม → ⏳ ตรวจไม่ได้</strong>
+          <strong>⏳ ยังตรวจไม่ได้ (ค่าตั้งต้น) → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้</strong>
         </div>
         <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; padding:8px 10px; line-height:1.7;">
           ⏳ <strong>กรณีผู้โดยสารกำลังใช้เครื่องอยู่</strong><br>
-          1) กดปุ่ม <strong>⏳ ไม่ว่าง</strong> → ทั้ง 3 รายการเปลี่ยนเป็น ⏳<br>
-          2) กด <strong>System</strong> และ <strong>Network</strong> ให้เป็น ✓ (เพราะผู้โดยสารใช้งานอยู่ = ระบบและเครือข่ายทำงานปกติ)<br>
-          3) เหลือ <strong>RustDesk</strong> เป็น ⏳ ไว้ แล้วกลับไปตรวจซ้ำเมื่อเครื่องว่าง<br>
-          รายการ ⏳ <strong>ไม่นับเป็นเครื่องเสีย</strong> (Not Ready) แต่จะไปลดตัวเลข
-          <strong>“ความครบถ้วนการตรวจ”</strong> จนกว่าจะกลับไปตรวจซ้ำให้ครบ
+          ทุกรายการเริ่มต้นเป็น <strong>⏳</strong> อยู่แล้ว — ตรวจได้หัวข้อไหนก็กดหัวข้อนั้นให้เป็น ✓<br>
+          เช่น ผู้โดยสารกำลังใช้เครื่อง IMM007 อยู่ → กด <strong>System</strong> และ <strong>Network</strong> เป็น ✓
+          (ผู้โดยสารใช้งานได้ = ระบบและเครือข่ายทำงานปกติ) เหลือ <strong>RustDesk</strong> เป็น ⏳ ไว้
+          แล้วกลับไปตรวจซ้ำเมื่อเครื่องว่าง<br>
+          <strong>⏳ = ยังตรวจไม่ได้</strong> (ไม่ใช่เครื่องเสีย) · <strong>✘ = ใช้งานไม่ได้</strong> (นับเป็น Not Ready)
+        </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; line-height:1.7;">
+          📊 <strong>การคิด % ของการ์ดแต่ละหัวข้อ</strong> — คิดจาก
+          <strong>เฉพาะเครื่องที่ตรวจหัวข้อนั้นได้</strong> รายการ ⏳ ถูกตัดออกจากตัวหาร<br>
+          ตัวอย่าง 20 เครื่องผ่านหมด แต่ IMM007 ตรวจ RustDesk ไม่ได้:<br>
+          System <strong>100%</strong> (20/20) · RustDesk <strong>100%</strong> (19/19 — ตัด IMM007 ออก) · Network <strong>100%</strong> (20/20)<br>
+          <strong>ยังตรวจไม่ได้</strong> 1 รายการ · <strong>ความครบถ้วนการตรวจ</strong> 98% (59/60 รายการ)
         </div>
       </div>
     </div>
