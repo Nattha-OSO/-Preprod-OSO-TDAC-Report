@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='27';
+const APP_VERSION='28';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -376,11 +376,11 @@ function cycleImm(btn){
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
 function shiftStartTime(shift){const s=String(shift||'');return s.indexOf('IMP/D')>=0?'10:00':(s.indexOf('IMP/N')>=0?'22:00':'');}
 function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-// ลง/ล้าง "เวลาที่กลับมาตรวจซ้ำ" ของแถว + อัปเดตป้ายแสดงผล
+// ลง/ล้าง "เวลาที่ตรวจข้อนี้เสร็จ" ของแถว (เดิมเรียก recheck ตอนยังมีปุ่ม "ไม่ว่าง" — เลิกใช้ชื่อนั้นแล้ว) + อัปเดตป้ายแสดงผล
 function setRecheck(body,id,val){
   const inp=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(inp)inp.value=val||'';
   const chip=body.querySelector('.recheck-time[data-kiosk="'+id+'"]');
-  if(chip){if(val){chip.textContent='↩ ตรวจซ้ำ '+val;chip.style.display='';}else{chip.textContent='';chip.style.display='none';}}
+  if(chip){if(val){chip.textContent='✓ ตรวจเมื่อ '+val;chip.style.display='';}else{chip.textContent='';chip.style.display='none';}}
 }
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 function initPublicForm(){
