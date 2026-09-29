@@ -39,4 +39,30 @@ assert.ok(Array.from(result.zones[0].ids).every(id => values[id].value === 'yes'
 assert.ok(Array.from(result.zones[1].ids).every(id => values[id].value === ''));
 vm.runInContext('cycleImm', context)(buttons[0]);
 assert.ok(Array.from(result.zones[0].ids).every(id => values[id].value === 'no'));
-console.log('zone mapping, clicks, legacy preservation and remark round-trip OK');
+const summary = vm.runInContext('zoneImmSummary', context);
+const zoneRows = values => Array.from(result.zones[0].ids, (id, i) => ({kiosk_id:id,remark:values[i]}));
+assert.equal(summary(zoneRows(Array(6).fill('มีเจ้าหน้าที่ ตม. ประจำจุด')), result.zones[0]), 'yes');
+assert.equal(summary(zoneRows(['มีเจ้าหน้าที่ ตม. ประจำจุด','ไม่มีเจ้าหน้าที่ ตม. ประจำจุด',...Array(4).fill('มีเจ้าหน้าที่ ตม. ประจำจุด')]), result.zones[0]), 'mixed');
+assert.equal(summary(zoneRows(Array(6).fill(null)), result.zones[0]), '');
+// Exercise the real single-report renderer and inspect its DOCX document XML.
+let documentXml = '';
+context.JSZip = class {
+  file(name, content) { if (name === 'document.xml') documentXml = content; return this; }
+  folder() { return this; }
+  async generateAsync() { return documentXml; }
+};
+context.getLogoBytes = async () => null;
+const kiosks = result.zones.flatMap((zone, zi) => Array.from(zone.ids, (id, i) => ({
+  kiosk_id:id, system_ready:true, rustdesk_ready:true, network_ready:true,
+  remark: zi === 0 ? 'มีเจ้าหน้าที่ ตม. ประจำจุด' : zi === 1 ? 'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด' : zi === 2 && i === 0 ? 'มีเจ้าหน้าที่ ตม. ประจำจุด' : null
+})));
+vm.runInContext('buildSingleReportDocxBlob', context)({kiosks, total:20, date:'2026-09-29', shift:'IMP/D 10:00', officer:'Test', webPc:true, webMobile:true}).then(xml => {
+  for (const zone of result.zones) assert.ok(xml.includes(zone.title), zone.title);
+  assert.ok(xml.includes('เจ้าหน้าที่ ตม. ประจำจุด: มี'));
+  assert.ok(xml.includes('เจ้าหน้าที่ ตม. ประจำจุด: ไม่มี'));
+  assert.ok(xml.includes('ข้อมูลเดิมต่างกัน'));
+  assert.ok(xml.includes('IMM011 (ตม. มี)'));
+  assert.ok(xml.includes('IMM012 (ตม. ไม่ระบุ)'));
+  assert.ok((xml.match(/Remark \(หมายเหตุ \+ ภาพถ่าย\)/g) || []).length >= 4);
+  console.log('zone mapping, clicks, legacy preservation and DOCX report XML OK');
+}).catch(e => { console.error(e); process.exitCode = 1; });

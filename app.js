@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='26';
+const APP_VERSION='27';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -350,6 +350,11 @@ function immSplit(remark){
 function immJoin(imm,text){
   const t=String(text||'').trim();
   return IMM_REMARK[imm]?(IMM_REMARK[imm]+(t?'\n'+t:'')):t;
+}
+function zoneImmSummary(kiosks,zone){
+  const byId=new Map((kiosks||[]).map(k=>[k.kiosk_id,immSplit(k.remark).imm]));
+  const states=zone.ids.map(id=>byId.get(id)||'');
+  return states.every(s=>s===states[0])?states[0]:'mixed';
 }
 function setImm(body,id,state){
   const b=body&&body.querySelector('.imm-val[data-kiosk="'+id+'"]');if(!b)return;
@@ -1471,13 +1476,17 @@ async function buildSingleReportDocxBlob(r){
       return dPhotoXml(rid,Math.round(wpx*9525),Math.round(hpx*9525),pid,fname,opt);
     }catch(e){photoFailed++;return '';}
   }
-  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) ดังนี้');
-  /* "ตม. ประจำจุด" แยกเป็นคอลัมน์ของตัวเอง (✔ มี / ✘ ไม่มี / — ยังไม่ระบุ)
-     ช่อง Remark จึงเหลือเฉพาะ 1) ข้อความหมายเหตุที่ผู้ตรวจพิมพ์  2) รูปที่ถ่ายไว้ */
-  const KW=[900,850,1000,900,1000,1850,3500];  // รวม 10000 dxa พอดีความกว้างพิมพ์ A4
+  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) แยกตามโซน');
+  // ponytail: เก็บสถานะรายเครื่องเดิมไว้ใน remark; โซนที่ข้อมูลเก่าต่างกันแสดงรายเครื่องจนกว่าจะเลือกใหม่
+  const KW=[1100,1000,1000,1000,2100,3800];
   const KPHOTO_PX=205;                         // รูปกว้างสุดในเซลล์ Remark (≈ 2.1 นิ้ว)
-  const krows=[];
-  for(const k of (r.kiosks||[])){
+  for(const zone of ZONES){
+    const state=zoneImmSummary(r.kiosks,zone);
+    const zoneKiosks=zone.ids.map(id=>(r.kiosks||[]).find(k=>k.kiosk_id===id)).filter(Boolean);
+    body+=dHeading(zone.title+' · '+zone.ids[0]+'–'+zone.ids[zone.ids.length-1]);
+    body+=dPar('เจ้าหน้าที่ ตม. ประจำจุด: '+(state==='yes'?'มี':state==='no'?'ไม่มี':state==='mixed'?'ข้อมูลเดิมต่างกัน (แสดงสถานะรายเครื่องด้านล่าง)':'ยังไม่ระบุ'),{sz:20,color:'0b2f6b',after:50});
+    const krows=[];
+    for(const k of zoneKiosks){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>{const s=subStateOf(k,t);return s==='wait'?'⏳':(s==='ok'?yes:no);};
     const status=cls==='occupied'?'ยังตรวจไม่ได้ (ทุกรายการ)'
@@ -1485,18 +1494,17 @@ async function buildSingleReportDocxBlob(r){
       :cls==='usable_wait'?('พร้อมใช้งาน · ยังตรวจไม่ได้ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
       :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
     const sp=immSplit(k.remark);
-    const immCell=sp.imm==='yes'?{xml:dCellPar(yes,{sz:22,bold:true,color:'15803d',align:'center'})}
-      :sp.imm==='no'?{xml:dCellPar(no,{sz:22,bold:true,color:'c0392b',align:'center'})}
-      :{xml:dCellPar('—',{sz:20,color:'9aa7bd',align:'center'})};
+    const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
     let cell='';
     const txt=(sp.text||'').trim();
     if(txt)cell+=dCellPar(txt,{sz:20,color:'1f2937'});
     const pics=(k.remark_photos||[]).filter(Boolean);
     for(let i=0;i<pics.length;i++)
       cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:(txt?60:20),after:i===pics.length-1?20:40});
-    krows.push([k.kiosk_id,mark('system'),mark('rustdesk'),mark('network'),immCell,status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
+    krows.push([idText,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
+    }
+    if(krows.length)body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3]});
   }
-  body+=dTable([['Kiosk','System','RustDesk','Network','ตม. ประจำจุด','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3,4]});
   body+=dHeading('Website / Mobile Checklist');
   /* รูปของ Website (PC/Mobile) ไปอยู่ในช่อง Remark ของแถวนั้น ๆ เช่นเดียวกับ Kiosk */
   const WPHOTO_PX=300;                         // รูปกว้างสุดในเซลล์ Remark ของ Website (≈ 3.1 นิ้ว)
