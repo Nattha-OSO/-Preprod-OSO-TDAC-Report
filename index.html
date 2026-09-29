@@ -140,7 +140,7 @@
   .btn-imm[data-state="no"]{border-style:solid;background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
   .btn-imm[data-state="mixed"]{border-color:#d97706;background:#fffbeb;color:#92400e}
   .chk.dis{opacity:.4;pointer-events:none;background:#f1f5f9}
-  /* ปุ่มรายการย่อย 3 สถานะ (System/RustDesk/Network): ⏳ ยังตรวจไม่ได้ (ค่าตั้งต้น) · ✓ พร้อมใช้งาน · ✘ ใช้งานไม่ได้ */
+  /* ปุ่มรายการย่อย 3 สถานะ (System/RustDesk/Network): ⏳ ยังไม่ได้ตรวจ (ค่าตั้งต้น) · ✓ พร้อมใช้งาน · ✘ ใช้งานไม่ได้ */
   .subchk{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line2);background:#fbfcfe;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:12.5px;font-weight:700;color:#46597a;transition:.12s;user-select:none}
   .subchk::before{font-size:13px}
   .subchk[data-state="no"]::before{content:"✘"}
@@ -346,7 +346,7 @@
           <div class="sumchip pct"><div class="n" id="pubChipPctNetwork">—</div><div class="l">Network</div><div class="s" id="pubChipSubNetwork">0/0 ตรวจได้</div></div>
           <!-- แถว 2: ภาพรวม -->
           <div class="sumchip"><div class="n" id="pubChipTotal">20</div><div class="l">Kiosks Total</div><div class="s">เครื่อง</div></div>
-          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">ยังตรวจไม่ได้</div><div class="s" id="pubChipRecheckSub">ตรวจครบทุกรายการ</div></div>
+          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">ยังไม่ได้ตรวจ</div><div class="s" id="pubChipRecheckSub">ตรวจครบทุกรายการ</div></div>
           <div class="sumchip pct"><div class="n" id="pubChipPctCoverage">—</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s" id="pubChipCoverageSub">0/60 รายการ</div></div>
           <!-- แถว 3: เครื่องที่ใช้งานได้ + Website -->
           <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">พร้อมใช้งาน</div><div class="s" id="pubChipReadySub">Not Ready 0 เครื่อง</div></div>
@@ -410,7 +410,7 @@
         <div class="card">
           <div class="card-h">🖥️ Kiosk Checklist — IMM001–IMM020</div>
           <div class="card-b" style="padding:0">
-            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · <strong>กดปุ่มรายการย่อยเพื่อสลับสถานะ:</strong> <strong style="color:#b45309">⏳ ยังตรวจไม่ได้</strong> (ค่าตั้งต้น) → <strong style="color:#15803d">✓ พร้อมใช้งาน</strong> → <strong style="color:#b91c1c">✘ ใช้งานไม่ได้</strong> · เช่น ผู้โดยสารกำลังใช้เครื่องอยู่ ให้กด System และ Network เป็น ✓ แล้วคง RustDesk เป็น ⏳ ไว้ · รายการ ⏳ ถูก<strong>ตัดออกจากตัวหาร</strong>ของ % หัวข้อนั้น · เครื่องที่มีรายการ <strong style="color:#b91c1c">✘</strong> ต้องระบุเหตุผลในช่อง Remark (รายการ ⏳ ไม่ต้องระบุ)</span></div>
+            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · <strong>กดปุ่มรายการย่อยเพื่อสลับสถานะ:</strong> <strong style="color:#b45309">⏳ ยังไม่ได้ตรวจ</strong> (ค่าตั้งต้น) → <strong style="color:#15803d">✓ พร้อมใช้งาน</strong> → <strong style="color:#b91c1c">✘ ใช้งานไม่ได้</strong> · เช่น ผู้โดยสารกำลังใช้เครื่องอยู่ ให้กด System และ Network เป็น ✓ แล้วคง RustDesk เป็น ⏳ ไว้ · รายการ ⏳ ถูก<strong>ตัดออกจากตัวหาร</strong>ของ % หัวข้อนั้น · เครื่องที่มีรายการ <strong style="color:#b91c1c">✘</strong> ต้องระบุเหตุผลในช่อง Remark (รายการ ⏳ ไม่ต้องระบุ)</span></div>
             <div style="overflow:auto;padding:14px">
               <table class="ktable">
                 <thead><tr><th style="width:96px">Kiosk ID</th><th>System / RustDesk / Network</th><th style="min-width:170px">Remark</th></tr></thead>
@@ -458,7 +458,7 @@
       <div id="pubThanks" class="pub-thanks hidden">
         <div class="big">&#10003;</div>
         <h2>บันทึกรายงานเรียบร้อย</h2>
-        <p class="pub-hint">ขอบคุณ ข้อมูลการตรวจสอบของท่านถูกบันทึกลงระบบแล้ว<br><span class="mini">หากมีรายการที่ยังเป็น ⏳ (ยังตรวจไม่ได้) กลับไปตรวจแล้วกด "แก้/ตรวจเพิ่มรอบนี้" เพื่ออัปเดตรายการเดิม (ไม่เกิดรายงานซ้ำ)</span></p>
+        <p class="pub-hint">ขอบคุณ ข้อมูลการตรวจสอบของท่านถูกบันทึกลงระบบแล้ว<br><span class="mini">หากมีรายการที่ยังเป็น ⏳ (ยังไม่ได้ตรวจ) สามารถเปิดรายงานเดิมเพื่ออัปเดตผลตรวจได้ (ไม่เกิดรายงานซ้ำ)</span></p>
         <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px">
           <button class="btn" onclick="editThisRound()" style="min-height:46px">↩ แก้/ตรวจเพิ่มรอบนี้</button>
           <button class="btn primary" onclick="resetPublic()" style="min-height:46px">+ ทำรายงานรอบถัดไป</button>
@@ -644,9 +644,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=29"></script>
+<script src="config.js?v=30"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

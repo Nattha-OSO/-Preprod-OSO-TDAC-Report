@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='29';
+const APP_VERSION='30';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -167,7 +167,7 @@ function kioskRowsHtml(){
     '<button type="button" class="btn-imm" data-zone="'+i+'" data-state="" onclick="cycleImm(this)" title="กดสลับสถานะเจ้าหน้าที่ ตม. สำหรับทุกเครื่องในโซน">'+IMM_LABEL['']+'</button></div></td></tr>'+
     zone.ids.map(id=>'<tr class="krow" data-row="'+id+'"><td class="kid">'+id+'</td>'+
     '<td><div class="checks">'+
-      SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังตรวจไม่ได้ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
+      SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังไม่ได้ตรวจ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
@@ -452,7 +452,7 @@ function applyDraft(d){
 function showResumeBar(d){
   const bar=$('pubResumeBar');if(!bar)return;
   const cnt=(d.kiosks||[]).reduce((a,k)=>a+kioskWaitItems(k).length,0);
-  bar.innerHTML='<span>↩️ กู้ข้อมูลที่กรอกค้างไว้ให้อัตโนมัติแล้ว'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ ยังตรวจไม่ได้ '+cnt+' รายการ':'')+' · ตรวจต่อได้เลย (ช่อง “ตรวจเสร็จเวลา” เว้นไว้ให้กรอกใหม่)</span>'+
+  bar.innerHTML='<span>↩️ กู้ข้อมูลที่กรอกค้างไว้ให้อัตโนมัติแล้ว'+(d.date?' — '+ddmmyyyy(d.date):'')+(d.shift?' · '+esc(d.shift):'')+(cnt?' · ⏳ ยังไม่ได้ตรวจ '+cnt+' รายการ':'')+' · ตรวจต่อได้เลย (ช่อง “ตรวจเสร็จเวลา” เว้นไว้ให้กรอกใหม่)</span>'+
     '<span class="resume-actions"><button type="button" class="btn" onclick="discardDraft()">เริ่มรายงานใหม่ (ล้างข้อมูล)</button></span>';
   bar.style.display='flex';
 }
@@ -524,14 +524,14 @@ function togglePubWeb(cb,lblId){const l=$(lblId);if(l)l.classList.toggle('on',cb
 // รายการย่อยของแถว (ปุ่ม tri-state) + สถานะปัจจุบัน
 function subChips(body,id){return SUBSYS.map(s=>body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]'));}
 function subStateEl(body,id,t){const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+t+'"]');return b?(b.dataset.state||'no'):'no';}
-/* กดสลับสถานะรายการย่อย: ⏳ ยังตรวจไม่ได้ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้ → ⏳
-   ⏳ คือค่าตั้งต้นของทุกหัวข้อ = "ยังไม่ได้ตรวจ/ตรวจไม่ได้" ไม่ถูกนับทั้งตัวตั้งและตัวหาร
+/* กดสลับสถานะรายการย่อย: ⏳ ยังไม่ได้ตรวจ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้ → ⏳
+   ⏳ คือค่าตั้งต้นของทุกหัวข้อ = "ยังไม่ได้ตรวจ" ไม่ถูกนับทั้งตัวตั้งและตัวหาร
    ✘ คือ "ตรวจแล้วใช้งานไม่ได้" เท่านั้น */
 function cycleSub(btn){
   const order=['wait','ok','no'],cur=btn.dataset.state||'wait',next=order[(order.indexOf(cur)+1)%3];
   btn.dataset.state=next;
   const body=btn.closest('tbody'),id=btn.dataset.kiosk;
-  // เปลี่ยนจาก ⏳ ยังตรวจไม่ได้ → ✓/✘ = เพิ่งกลับมาตรวจได้ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
+  // เปลี่ยนจาก ⏳ ยังไม่ได้ตรวจ → ✓/✘ = เพิ่งกลับมาตรวจได้ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
   if(cur==='wait'&&next!=='wait'){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
   syncRowBtn(body,id);
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
@@ -582,7 +582,7 @@ function setKiosks(bodyId,arr){
   ZONES.forEach((_,i)=>syncZoneImm(body,i));
 }
 /* ---- สถานะรายหัวข้อจากออบเจ็กต์ kiosk (บูลีน + recheck_items) ----
-   ⏳ wait = ยังตรวจไม่ได้ (เช่น RustDesk ตอนผู้โดยสารใช้เครื่องอยู่) — ไม่นับทั้งตัวตั้งและตัวหาร
+   ⏳ wait = ยังไม่ได้ตรวจ (เช่น RustDesk ตอนผู้โดยสารใช้เครื่องอยู่) — ไม่นับทั้งตัวตั้งและตัวหาร
    ✓ ok   = ตรวจแล้วพร้อมใช้งาน
    ✘ no   = ตรวจแล้วใช้งานไม่ได้ */
 // แถวเก่าที่บันทึกตอนยังมีปุ่ม "ไม่ว่าง" (บูลีน false ทั้ง 3 + recheck_items ว่าง) = ยังไม่ได้ตรวจ ไม่ใช่เสีย
@@ -597,7 +597,7 @@ function subStateOf(k,type){
 function subStatesOf(k){return SUBSYS.map(s=>subStateOf(k,s.t));}
 function kioskWaitItems(k){return SUBSYS.filter(s=>subStateOf(k,s.t)==='wait').map(s=>s.t);}
 function waitLabels(k){const set=new Set(kioskWaitItems(k));return SUBSYS.filter(s=>set.has(s.t)).map(s=>s.l);}
-// จัดประเภทเครื่อง: 'occupied'(ตรวจไม่ได้เลยสักรายการ) | 'notready'(มีรายการเสีย) | 'usable_wait'(ใช้งานได้ รอตรวจบางรายการ) | 'ready'(ตรวจครบ)
+// จัดประเภทเครื่อง: 'occupied'(ยังไม่ได้ตรวจเลยสักรายการ) | 'notready'(มีรายการเสีย) | 'usable_wait'(ใช้งานได้ รอตรวจบางรายการ) | 'ready'(ตรวจครบ)
 function kioskClass(k){
   const st=subStatesOf(k);
   if(st.some(s=>s==='no'))return 'notready';
@@ -638,7 +638,7 @@ function readinessStats(arr,total){
     coveragePct:itemsTotal?Math.round(itemsChecked/itemsTotal*100):null,
     checkedPct:itemsChecked>0?Math.round(itemsOk/itemsChecked*100):null};
 }
-// การ์ด "ยังตรวจไม่ได้" — แจกแจงจำนวนแยกรายหัวข้อให้อ่านง่ายทันที แทนที่จะรวมเป็นตัวเลขเดียว
+// การ์ด "ยังไม่ได้ตรวจ" — แจกแจงจำนวนแยกรายหัวข้อให้อ่านง่ายทันที แทนที่จะรวมเป็นตัวเลขเดียว
 function waitBreakdownText(per){
   const items=(per||[]).filter(p=>p.wait);
   return items.length?items.map(p=>p.l+' '+p.wait).join(' · '):'ตรวจครบทุกรายการ';
@@ -647,14 +647,14 @@ function updatePubSummary(){
   const ks=readKiosks('pubKioskBody'),s=readinessStats(ks,KIOSK_COUNT);
   const setChip=(id,txt,tip)=>{const e=$(id);if(!e)return;e.textContent=txt;const c=e.closest('.sumchip');if(c)c.title=tip||'';};
   const setSub=(id,txt)=>{const e=$(id);if(e)e.textContent=txt;};
-  // การ์ดรายหัวข้อ — ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก) เช่น RustDesk 19/19 เมื่อมี 1 เครื่องยังตรวจไม่ได้
+  // การ์ดรายหัวข้อ — ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก) เช่น RustDesk 19/19 เมื่อมี 1 เครื่องยังไม่ได้ตรวจ
   s.per.forEach(p=>{
     const key=p.t.charAt(0).toUpperCase()+p.t.slice(1);
     setChip('pubChipPct'+key,(p.pct==null?'—':p.pct+'%'),
-      p.l+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังตรวจไม่ได้ '+p.wait+' (จาก '+p.total+' เครื่อง)');
+      p.l+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังไม่ได้ตรวจ '+p.wait+' (จาก '+p.total+' เครื่อง)');
     setSub('pubChipSub'+key,p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):''));
   });
-  setChip('pubChipRecheck',s.itemsWait,'รายการที่ยังตรวจไม่ได้ '+s.itemsWait+' รายการ (ใน '+s.needRecheck+' เครื่อง)');
+  setChip('pubChipRecheck',s.itemsWait,'รายการที่ยังไม่ได้ตรวจ '+s.itemsWait+' รายการ (ใน '+s.needRecheck+' เครื่อง)');
   setSub('pubChipRecheckSub',waitBreakdownText(s.per));
   setChip('pubChipPctCoverage',(s.coveragePct==null?'—':s.coveragePct+'%'),s.itemsChecked+' / '+s.itemsTotal+' รายการ');
   setSub('pubChipCoverageSub',s.itemsChecked+'/'+s.itemsTotal+' รายการ');
@@ -691,10 +691,10 @@ function timelineHtml(r){
   if(!t.start&&!t.firstPassEnd&&!t.rechecks.length)return '';
   const line=(time,color,text)=>'<div style="display:flex;gap:9px;align-items:baseline"><span style="width:50px;flex:0 0 auto;font-weight:800;color:'+color+'">'+esc(time||'—')+'</span><span>'+text+'</span></div>';
   let rows=line(t.start,'var(--navy)','เริ่มตรวจ');
-  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+(t.itemsWaitNow?' · ยังตรวจไม่ได้ '+t.itemsWaitNow+' รายการ':''));
+  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+(t.itemsWaitNow?' · ยังไม่ได้ตรวจ '+t.itemsWaitNow+' รายการ':''));
   t.rechecks.forEach(x=>{rows+=line(x.at,'#b45309','↩ ตรวจซ้ำ '+esc(x.id)+(x.waitMin!=null?' <span class="mini">(รอ '+x.waitMin+' นาที)</span>':''));});
   let foot='';
-  if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.itemsWaitNow+' รายการที่ตรวจไม่ได้ (ใน '+t.pendingNow+' เครื่อง) — ยังตรวจไม่ครบ</div>';
+  if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.itemsWaitNow+' รายการที่ยังไม่ได้ตรวจ (ใน '+t.pendingNow+' เครื่อง) — การตรวจยังไม่ครบ</div>';
   else if(t.completeAt)foot+='<div style="margin-top:5px;color:var(--green);font-weight:800">✅ ตรวจครบทุกรายการ: '+t.completeAt+' น.'+(t.crossedMidnight?' (วันถัดไป)':'')+'</div>';
   if(t.pendingNow===0&&t.totalMin!=null)foot+='<div style="font-weight:800;color:var(--navy)">⏱ ระยะเวลารวมจนตรวจครบ: '+fmtDur(t.totalMin)+'</div>';
   // (ช่วงรอ/ตรวจซ้ำ = เวลาที่เสียไปกับการกลับไปตรวจหัวข้อที่ยัง ⏳ ในรอบแรก)
@@ -723,10 +723,10 @@ async function submitPublic(){
   if(!officer)return toast('กรุณาเลือกชื่อเจ้าหน้าที่ผู้ตรวจสอบ',true);
   const kiosks=readKiosks('pubKioskBody'),st=readinessStats(kiosks,KIOSK_COUNT),ready=st.ready,pct=st.pct;
   const email=($('pubEmail').value||'').trim();
-  // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่มีหัวข้อ ✘ (Not Ready) — หัวข้อ ⏳ ยังตรวจไม่ได้ ไม่ต้องใส่ ──
+  // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่มีหัวข้อ ✘ (Not Ready) — หัวข้อ ⏳ ยังไม่ได้ตรวจ ไม่ต้องใส่ ──
   document.querySelectorAll('#pubForm .remark-input.invalidf').forEach(el=>el.classList.remove('invalidf'));
   let firstBad=null;const markBad=el=>{if(el){el.classList.add('invalidf');if(!firstBad)firstBad=el;}};
-  // บังคับ Remark เฉพาะเครื่องที่มีหัวข้อ ✘ "ใช้งานไม่ได้" — หัวข้อ ⏳ "ยังตรวจไม่ได้" ไม่ต้องใส่
+  // บังคับ Remark เฉพาะเครื่องที่มีหัวข้อ ✘ "ใช้งานไม่ได้" — หัวข้อ ⏳ "ยังไม่ได้ตรวจ" ไม่ต้องใส่
   kiosks.forEach(k=>{
     // นับเฉพาะข้อความที่ผู้ตรวจพิมพ์เอง — บรรทัด "ตม. ประจำจุด" ไม่ถือเป็นเหตุผลของ Not Ready
     if(kioskClass(k)==='notready'&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
@@ -735,8 +735,8 @@ async function submitPublic(){
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
   const inspectStart=($('pubStart').value||'').trim()||shiftStartTime(shift);
   const inspectEnd=($('pubEnd').value||'').trim()||null;
-  // ── ตรวจครบก่อนส่ง: ถ้ายังมีหัวข้อที่เป็น ⏳ (ยังตรวจไม่ได้) ให้เตือน (ส่งได้ แล้วกลับมาแก้รอบเดิมภายหลัง) ──
-  if(st.itemsWait>0&&!confirm('ยังมี ⏳ "ยังตรวจไม่ได้" อีก '+st.itemsWait+' รายการ ('+st.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')\n\nรายการ ⏳ จะไม่ถูกนับทั้งตัวตั้งและตัวหารของ % รายหัวข้อ\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาตรวจซ้ำแล้วส่งทับรายการเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
+  // ── ตรวจครบก่อนส่ง: ถ้ายังมีหัวข้อที่เป็น ⏳ (ยังไม่ได้ตรวจ) ให้เตือน ──
+  if(st.itemsWait>0&&!confirm('ยังมี ⏳ "ยังไม่ได้ตรวจ" อีก '+st.itemsWait+' รายการ ('+st.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')\n\nรายการ ⏳ จะไม่ถูกนับทั้งตัวตั้งและตัวหารของ % รายหัวข้อ\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาอัปเดตรายงานเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
   const report={
     report_date:date,shift,officer,inspect_start:inspectStart,inspect_end:inspectEnd,
     web_pc_ready:!!$('pubWebPc').checked,web_pc_remark:($('pubWebPcRemark').value||'').trim()||null,
@@ -887,15 +887,15 @@ function summarize(reports){
   const hmap={};health.forEach(h=>hmap[h.id]=h);
   reports.forEach(r=>r.kiosks.forEach(k=>{const h=hmap[k.kiosk_id];if(!h)return;
     const st=subStatesOf(k);
-    if(st.every(x=>x==='wait'))return;   // ตรวจไม่ได้เลยสักรายการ = ยังไม่ได้ตรวจ ไม่นับเป็นการตรวจ/Not Ready
+    if(st.every(x=>x==='wait'))return;   // ยังไม่ได้ตรวจเลยสักรายการ ไม่นับเป็นการตรวจ/Not Ready
     h.checks++;
     if(st.some(x=>x==='no'))h.notReady++;
-    // รายการ ⏳ = ตรวจไม่ได้ (เช่น RustDesk ตอนผู้โดยสารใช้งาน) ไม่นับเป็น "ระบบล้ม"
+    // รายการ ⏳ = ยังไม่ได้ตรวจ (เช่น RustDesk ตอนผู้โดยสารใช้งาน) ไม่นับเป็น "ระบบล้ม"
     SUBSYS.forEach((s,i)=>{if(st[i]==='no')h.fail[s.t]++;else if(st[i]==='wait'){h.wait[s.t]++;h.waitTotal++;}});}));
   health.forEach(h=>{h.pct=h.checks?Math.round((h.checks-h.notReady)/h.checks*100):null;});
   const problem=health.filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady);
-  // หัวข้อที่ยัง ⏳ "ตรวจไม่ได้" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
-  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังตรวจไม่ได้: '+waitLabels(k).join(', '))+(k.remark?(' — '+k.remark):'')})):[];
+  // หัวข้อที่ยัง ⏳ "ยังไม่ได้ตรวจ" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
+  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังไม่ได้ตรวจ: '+waitLabels(k).join(', '))+(k.remark?(' — '+k.remark):'')})):[];
   const shiftCounts={},officerCounts={};
   reports.forEach(r=>{shiftCounts[r.shift]=(shiftCounts[r.shift]||0)+1;officerCounts[r.officer]=(officerCounts[r.officer]||0)+1;});
   const webPcOk=reports.filter(r=>r.webPc).length,webMobileOk=reports.filter(r=>r.webMobile).length;
@@ -953,14 +953,14 @@ function renderDashboard(){
       stat('เครื่องที่ต้องติดตาม',(s.problem||[]).length,'เคยพบ Not Ready','var(--rose)')+
     '</div>'+
     '<div class="exec"><div class="panel"><div class="panel-head"><div><div class="panel-title">สถานะรอบล่าสุด</div><div class="mini">'+(L?(dispDate(L.date)+' · '+esc(L.shift)+' · '+esc(L.officer)):'ยังไม่มีรายงาน')+'</div></div>'+(L?'<button class="btn" onclick="openReportDetail('+L.id+')">ดูรายละเอียด</button>':'')+'</div>'+
-      '<div class="exec-grid"><div class="exec-item"><b>Kiosk พร้อมใช้งาน</b><span class="tag '+(L?pctTone(L.pct):'neutral')+'">'+(L?(L.ready+' / '+L.total):'-')+'</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+(L?L.pct:0)+'%"></div></div><div class="mini" style="margin-top:6px">Readiness '+(L?L.pct:0)+'%'+(L&&L.itemsWait?' · เฉพาะที่ตรวจได้ '+(L.checkedPct==null?'—':L.checkedPct+'%')+' · ⏳ ยังตรวจไม่ได้ '+L.itemsWait+' รายการ':'')+'</div>'+
+      '<div class="exec-grid"><div class="exec-item"><b>Kiosk พร้อมใช้งาน</b><span class="tag '+(L?pctTone(L.pct):'neutral')+'">'+(L?(L.ready+' / '+L.total):'-')+'</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+(L?L.pct:0)+'%"></div></div><div class="mini" style="margin-top:6px">Readiness '+(L?L.pct:0)+'%'+(L&&L.itemsWait?' · เฉพาะที่ตรวจได้ '+(L.checkedPct==null?'—':L.checkedPct+'%')+' · ⏳ ยังไม่ได้ตรวจ '+L.itemsWait+' รายการ':'')+'</div>'+
         (L&&L.per?'<div class="mini" style="margin-top:6px">'+L.per.map(p=>esc(p.l)+' '+(p.pct==null?'—':p.pct+'%')+' <span style="color:#94a3b8">('+p.ok+'/'+p.checked+')</span>').join(' · ')+'</div>':'')+'</div>'+
         '<div class="exec-item"><b>Website (PC)</b><span class="tag '+(L?(L.webPc?'excellent':'critical'):'neutral')+'">'+(L?(L.webPc?'System Ready':'Not Ready'):'-')+'</span><div class="mini" style="margin-top:8px">ภาพรวมพร้อม '+(s.webPcPct||0)+'% ของรอบ</div></div>'+
         '<div class="exec-item"><b>Website (Mobile)</b><span class="tag '+(L?(L.webMobile?'excellent':'critical'):'neutral')+'">'+(L?(L.webMobile?'System Ready':'Not Ready'):'-')+'</span><div class="mini" style="margin-top:8px">ภาพรวมพร้อม '+(s.webMobilePct||0)+'% ของรอบ</div></div></div></div>'+
       '<div class="panel"><div class="panel-head"><div><div class="panel-title">ข้อเสนอแนะถัดไป</div><div class="mini">แนวทางการติดตาม</div></div></div><div class="next-steps">'+dashSteps(s)+'</div></div></div>'+
-    '<div class="panel" style="margin-bottom:16px'+(rc.length?';border:1px solid #fcd34d;background:#fffbeb':'')+'"><div class="panel-head"><div><div class="panel-title">⏳ หัวข้อที่ยังตรวจไม่ได้</div><div class="mini">รายการที่ยังตรวจไม่ได้ในรอบล่าสุด — กลับไปตรวจแล้วกด "ตรวจซ้ำ" เพื่ออัปเดต</div></div>'+(rc.length?'<span class="tag" style="background:#fef3c7;color:#b45309">'+rc.length+' เครื่อง</span>':'')+'</div>'+
+    '<div class="panel" style="margin-bottom:16px'+(rc.length?';border:1px solid #fcd34d;background:#fffbeb':'')+'"><div class="panel-head"><div><div class="panel-title">⏳ หัวข้อที่ยังไม่ได้ตรวจ</div><div class="mini">รายการที่ยังไม่ได้ตรวจในรอบล่าสุด — เปิดรายงานเพื่ออัปเดตผลตรวจ</div></div>'+(rc.length?'<span class="tag" style="background:#fef3c7;color:#b45309">'+rc.length+' เครื่อง</span>':'')+'</div>'+
       (rc.length?('<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>Kiosk</th><th>รอบ</th><th>ผู้ตรวจ</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>'+
-        rc.map(x=>'<tr><td class="kid">'+esc(x.kioskId)+'</td><td class="nowrap">'+esc(dispDate(x.date))+' · '+esc(x.shift)+'</td><td>'+esc(x.officer)+'</td><td class="comment">'+(x.remark?esc(x.remark):'<span class="mini">—</span>')+'</td><td class="nowrap"><button class="btn primary" onclick="openReportDetail('+x.reportId+')">ตรวจซ้ำ</button></td></tr>').join('')+
+        rc.map(x=>'<tr><td class="kid">'+esc(x.kioskId)+'</td><td class="nowrap">'+esc(dispDate(x.date))+' · '+esc(x.shift)+'</td><td>'+esc(x.officer)+'</td><td class="comment">'+(x.remark?esc(x.remark):'<span class="mini">—</span>')+'</td><td class="nowrap"><button class="btn primary" onclick="openReportDetail('+x.reportId+')">เปิดรายงาน</button></td></tr>').join('')+
         '</tbody></table></div>')
        :'<div class="empty">ไม่มีเครื่องค้างตรวจ ✓</div>')+
     '</div>'+
@@ -1158,9 +1158,9 @@ function openReportDetail(id){
       [r.officer].concat((data.officers||[]).filter(n=>n!==r.officer)).map(n=>'<option value="'+esc(n)+'"'+(n===r.officer?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'+
     '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)">'+
       // % รายหัวข้อ — ตัวหารคือเครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก)
-      ((r.per||[]).map(p=>'<div class="sumchip pct" title="'+esc(p.l)+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังตรวจไม่ได้ '+p.wait+'"><div class="n">'+(p.pct==null?'—':p.pct+'%')+'</div><div class="l">'+esc(p.l)+'</div><div class="s">'+p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):'')+'</div></div>').join(''))+
+      ((r.per||[]).map(p=>'<div class="sumchip pct" title="'+esc(p.l)+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังไม่ได้ตรวจ '+p.wait+'"><div class="n">'+(p.pct==null?'—':p.pct+'%')+'</div><div class="l">'+esc(p.l)+'</div><div class="s">'+p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):'')+'</div></div>').join(''))+
       '<div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div><div class="s">เครื่อง</div></div>'+
-      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังตรวจไม่ได้</div><div class="s">'+esc(waitBreakdownText(r.per))+'</div></div>'+
+      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังไม่ได้ตรวจ</div><div class="s">'+esc(waitBreakdownText(r.per))+'</div></div>'+
       '<div class="sumchip pct" title="'+(r.itemsChecked==null?'':r.itemsChecked+' / '+r.itemsTotal+' รายการ')+'"><div class="n">'+(r.coveragePct==null?'—':r.coveragePct+'%')+'</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s">'+(r.itemsChecked==null?'—':r.itemsChecked+'/'+r.itemsTotal+' รายการ')+'</div></div>'+
       '<div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div><div class="s">Not Ready '+r.notReady+' เครื่อง</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+
@@ -1220,7 +1220,7 @@ async function deleteReport(id,fromModal){
 /* ---------- ส่งออก CSV ---------- */
 async function exportCSV(){
   await ensureFresh();
-  const head=['วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','Kiosk ทั้งหมด','ยังตรวจไม่ได้ (รายการ)','Readiness %','ความครบถ้วนการตรวจ %','ผ่านเฉพาะที่ตรวจได้ %']
+  const head=['วันที่','รอบ','ผู้ตรวจสอบ','Kiosk พร้อม','Kiosk ทั้งหมด','ยังไม่ได้ตรวจ (รายการ)','Readiness %','ความครบถ้วนการตรวจ %','ผ่านเฉพาะที่ตรวจได้ %']
     .concat(SUBSYS.map(s=>s.l+' %'),SUBSYS.map(s=>s.l+' (ผ่าน/ตรวจได้)'),['Web PC','Web Mobile','ปัญหา/ข้อเสนอแนะ','บันทึกเมื่อ']);
   const rows=(data.reports||[]).map(r=>{
     const per=r.per||[];const pick=(t,f)=>{const p=per.filter(x=>x.t===t)[0];return p?f(p):'';};
@@ -1434,11 +1434,11 @@ async function buildSingleReportDocxBlob(r){
     ['ความพร้อมใช้งาน Kiosk',rst.pct+'%   ('+rst.usable+' / '+r.total+' เครื่องพร้อมใช้งาน)'],
     // % รายหัวข้อ — ตัวหารคือเฉพาะเครื่องที่ตรวจหัวข้อนั้นได้ (⏳ ถูกตัดออกจากตัวหาร)
     ['ความพร้อมรายหัวข้อ',rst.per.map(p=>p.l+' '+(p.pct==null?'—':p.pct+'%')+' ('+p.ok+'/'+p.checked+' ที่ตรวจได้)').join('   ·   ')],
-    ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%')+'   ('+rst.itemsChecked+' / '+rst.itemsTotal+' รายการ)'+(rst.itemsWait?'   ·  ยังตรวจไม่ได้ '+rst.itemsWait+' รายการ':'')],
+    ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%')+'   ('+rst.itemsChecked+' / '+rst.itemsTotal+' รายการ)'+(rst.itemsWait?'   ·  ยังไม่ได้ตรวจ '+rst.itemsWait+' รายการ':'')],
     ['ผ่านเฉพาะที่ตรวจได้',(checkedPct==null?'—':checkedPct+'%')+'   ('+rst.itemsOk+' / '+rst.itemsChecked+' รายการ)'],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
-  kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังตรวจไม่ได้ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
+  kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังไม่ได้ตรวจ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
@@ -1447,7 +1447,7 @@ async function buildSingleReportDocxBlob(r){
   body+=dKpiCards(rst.per.map(p=>[p.l,(p.pct==null?'—':p.pct+'%'),p.ok+' / '+p.checked+' ที่ตรวจได้'+(p.wait?('  ·  ⏳'+p.wait):''),
       p.pct==null?'6a7d9b':p.pct>=100?'15803d':p.pct>=80?'b9770e':'c0392b'])
     .concat([['Kiosks Total',String(r.total),'เครื่อง'],
-      ['ยังตรวจไม่ได้',String(rst.itemsWait),'รายการ',rst.itemsWait?'b9770e':'6a7d9b'],
+      ['ยังไม่ได้ตรวจ',String(rst.itemsWait),'รายการ',rst.itemsWait?'b9770e':'6a7d9b'],
       ['ความครบถ้วนการตรวจ',(rst.coveragePct==null?'—':rst.coveragePct+'%'),rst.itemsChecked+' / '+rst.itemsTotal+' รายการ']]));
   body+=dKpiCards([['พร้อมใช้งาน',String(rst.usable),'เครื่อง',rst.usable?'15803d':'6a7d9b'],
     ['Not Ready',String(notReady),'เครื่อง',notReady?'c0392b':'6a7d9b'],
@@ -1494,10 +1494,10 @@ async function buildSingleReportDocxBlob(r){
     for(const k of zoneKiosks){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>{const s=subStateOf(k,t);return s==='wait'?'⏳':(s==='ok'?yes:no);};
-    const status=cls==='occupied'?'ยังตรวจไม่ได้ (ทุกรายการ)'
+    const status=cls==='occupied'?'ยังไม่ได้ตรวจ (ทุกรายการ)'
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
-      :cls==='usable_wait'?('พร้อมใช้งาน · ยังตรวจไม่ได้ '+wl+(k.recheck_at?' (ตรวจซ้ำ '+k.recheck_at+' น.)':''))
-      :('Not Ready'+(k.recheck_at?' · ตรวจซ้ำ '+k.recheck_at+' น.':''));
+      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+(k.recheck_at?' (ตรวจเมื่อ '+k.recheck_at+' น.)':''))
+      :('Not Ready'+(k.recheck_at?' · ตรวจเมื่อ '+k.recheck_at+' น.':''));
     const sp=immSplit(k.remark);
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
     let cell='';
@@ -1575,7 +1575,7 @@ function periodReports(start,end){return (data.reports||[]).filter(r=>{const d=p
 function problemBars(reports){
   const hmap={};KIOSKS.forEach(id=>hmap[id]={id,notReady:0,checks:0});
   reports.forEach(r=>r.kiosks.forEach(k=>{const h=hmap[k.kiosk_id];if(!h)return;
-    const st=subStatesOf(k);if(st.every(x=>x==='wait'))return;   // ตรวจไม่ได้เลย = ไม่นับ
+    const st=subStatesOf(k);if(st.every(x=>x==='wait'))return;   // ยังไม่ได้ตรวจเลย = ไม่นับ
     h.checks++;if(st.some(x=>x==='no'))h.notReady++;}));
   return Object.values(hmap).filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady).slice(0,12).map(h=>({label:h.id,value:h.notReady,color:'#f43f5e'}));
 }

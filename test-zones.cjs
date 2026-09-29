@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(__dirname + '/app.js', 'utf8');
+const copy = ['app.js','index.html','guide.html'].map(name => fs.readFileSync(__dirname + '/' + name, 'utf8')).join('\n');
 const context = {window: {}, document: {addEventListener() {}}, setTimeout, clearTimeout};
 vm.createContext(context);
 vm.runInContext(source, context);
@@ -65,6 +66,8 @@ vm.runInContext('buildSingleReportDocxBlob', context)({kiosks, total:20, date:'2
   assert.ok(xml.includes('IMM012 (ตม. ไม่ระบุ)'));
   assert.ok((xml.match(/Remark \(หมายเหตุ \+ ภาพถ่าย\)/g) || []).length >= 4);
   const waitBreakdownText = vm.runInContext('waitBreakdownText', context);
+assert.ok(!copy.includes('ยังตรวจไม่ได้'));
+assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:2},{l:'Network',wait:0}]), 'RustDesk 2');
   assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:0}]), 'ตรวจครบทุกรายการ');
   console.log('zone mapping, clicks, legacy preservation, DOCX report XML and wait breakdown OK');
