@@ -5,13 +5,19 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='25';
+const APP_VERSION='26';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
+const ZONES=[
+  {title:'Zone 1 · ช่องตรวจตม.ฝั่งตะวันตก',ids:KIOSKS.slice(0,6)},
+  {title:'Zone 2 · fast track',ids:KIOSKS.slice(6,10)},
+  {title:'Zone 3 · ช่องตรวจตม.ฝั่งตะวันออก',ids:KIOSKS.slice(10,16)},
+  {title:'Zone 4 · พิธีการ',ids:KIOSKS.slice(16,20)}
+];
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
 const SHIFTS=['IMP/D 10:00','IMP/N 22:00'];
 // เจ้าหน้าที่ ตม. ประจำจุดของเครื่องนั้น ๆ: '' ยังไม่ระบุ · 'yes' มี · 'no' ไม่มี
-const IMM_LABEL={'':'👮 ตม. ประจำจุด?','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด'};
+const IMM_LABEL={'':'👮 ตม. ประจำจุด?','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด','mixed':'👮 ข้อมูลเดิมต่างกัน — เลือกใหม่ทั้งโซน'};
 const IMM_REMARK={'yes':'มีเจ้าหน้าที่ ตม. ประจำจุด','no':'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด'};
 const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
@@ -157,15 +163,17 @@ async function changePassword(){
    หน้าสาธารณะ (ฟอร์มรายงาน TDAC)
    ============================================================ */
 function kioskRowsHtml(){
-  return KIOSKS.map(id=>'<tr class="krow" data-row="'+id+'"><td class="kid">'+id+'</td>'+
+  return ZONES.map((zone,i)=>'<tr class="zone-row"><td colspan="3"><div class="zone-head"><strong>'+zone.title+' · '+zone.ids[0]+'–'+zone.ids[zone.ids.length-1]+'</strong>'+
+    '<button type="button" class="btn-imm" data-zone="'+i+'" data-state="" onclick="cycleImm(this)" title="กดสลับสถานะเจ้าหน้าที่ ตม. สำหรับทุกเครื่องในโซน">'+IMM_LABEL['']+'</button></div></td></tr>'+
+    zone.ids.map(id=>'<tr class="krow" data-row="'+id+'"><td class="kid">'+id+'</td>'+
     '<td><div class="checks">'+
       SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังตรวจไม่ได้ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
-      '<button type="button" class="btn-imm" data-kiosk="'+id+'" data-state="" onclick="cycleImm(this)" title="กดสลับ: ยังไม่ระบุ → มีเจ้าหน้าที่ ตม. ประจำจุด → ไม่มี">'+IMM_LABEL['']+'</button>'+
+      '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
       '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
     '</div></td>'+
-    '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('');
+    '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
 /* ============================================================
    รูปภาพประกอบหมายเหตุ/ข้อเสนอแนะ (ถ่าย/แนบ → บีบขนาด → อัปขึ้น Supabase Storage)
@@ -344,15 +352,20 @@ function immJoin(imm,text){
   return IMM_REMARK[imm]?(IMM_REMARK[imm]+(t?'\n'+t:'')):t;
 }
 function setImm(body,id,state){
-  const b=body&&body.querySelector('.btn-imm[data-kiosk="'+id+'"]');if(!b)return;
-  const s=IMM_REMARK[state]?state:'';
-  b.dataset.state=s;b.textContent=IMM_LABEL[s];
+  const b=body&&body.querySelector('.imm-val[data-kiosk="'+id+'"]');if(!b)return;
+  b.value=IMM_REMARK[state]?state:'';
 }
-// กดสลับ: ยังไม่ระบุ → มี → ไม่มี
+function syncZoneImm(body,i){
+  const zone=ZONES[i],btn=body.querySelector('.btn-imm[data-zone="'+i+'"]');if(!btn)return;
+  const states=zone.ids.map(id=>body.querySelector('.imm-val[data-kiosk="'+id+'"]').value);
+  const state=states.every(s=>s===states[0])?states[0]:'mixed';
+  btn.dataset.state=state;btn.textContent=IMM_LABEL[state];
+}
+// กดสลับสถานะทั้งโซน; ข้อมูลเก่าที่ต่างกันจะคงเดิมจนกดเลือกใหม่
 function cycleImm(btn){
-  const order=['','yes','no'],cur=btn.dataset.state||'',next=order[(order.indexOf(cur)+1)%3];
-  const body=btn.closest('tbody');
-  setImm(body,btn.dataset.kiosk,next);
+  const order=['','yes','no'],cur=btn.dataset.state==='mixed'?'':(btn.dataset.state||''),next=order[(order.indexOf(cur)+1)%3];
+  const body=btn.closest('tbody'),i=Number(btn.dataset.zone);
+  ZONES[i].ids.forEach(id=>setImm(body,id,next));syncZoneImm(body,i);
   if(body&&body.id==='pubKioskBody')scheduleDraftSave();
 }
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
@@ -541,7 +554,7 @@ function readKiosks(bodyId){
     const wait=SUBSYS.filter(s=>st(s.t)==='wait').map(s=>s.t);
     const rem=(body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]')||{}).value||'';
     // สถานะเจ้าหน้าที่ ตม. ประจำจุด → เก็บเป็นบรรทัดแรกของหมายเหตุเครื่องนั้น
-    const imm=((body.querySelector('.btn-imm[data-kiosk="'+id+'"]')||{}).dataset||{}).state||'';
+    const imm=(body.querySelector('.imm-val[data-kiosk="'+id+'"]')||{}).value||'';
     return {kiosk_id:id,
       system_ready:st('system')==='ok',rustdesk_ready:st('rustdesk')==='ok',network_ready:st('network')==='ok',
       occupied:wait.length===SUBSYS.length,   // คงคอลัมน์เดิมไว้: ⏳ ครบทุกหัวข้อ = ยังไม่ได้ตรวจเครื่องนี้เลย
@@ -561,6 +574,7 @@ function setKiosks(bodyId,arr){
     photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
     syncRowBtn(body,id);
   });
+  ZONES.forEach((_,i)=>syncZoneImm(body,i));
 }
 /* ---- สถานะรายหัวข้อจากออบเจ็กต์ kiosk (บูลีน + recheck_items) ----
    ⏳ wait = ยังตรวจไม่ได้ (เช่น RustDesk ตอนผู้โดยสารใช้เครื่องอยู่) — ไม่นับทั้งตัวตั้งและตัวหาร
