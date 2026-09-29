@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='28';
+const APP_VERSION='29';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -638,6 +638,11 @@ function readinessStats(arr,total){
     coveragePct:itemsTotal?Math.round(itemsChecked/itemsTotal*100):null,
     checkedPct:itemsChecked>0?Math.round(itemsOk/itemsChecked*100):null};
 }
+// การ์ด "ยังตรวจไม่ได้" — แจกแจงจำนวนแยกรายหัวข้อให้อ่านง่ายทันที แทนที่จะรวมเป็นตัวเลขเดียว
+function waitBreakdownText(per){
+  const items=(per||[]).filter(p=>p.wait);
+  return items.length?items.map(p=>p.l+' '+p.wait).join(' · '):'ตรวจครบทุกรายการ';
+}
 function updatePubSummary(){
   const ks=readKiosks('pubKioskBody'),s=readinessStats(ks,KIOSK_COUNT);
   const setChip=(id,txt,tip)=>{const e=$(id);if(!e)return;e.textContent=txt;const c=e.closest('.sumchip');if(c)c.title=tip||'';};
@@ -650,7 +655,7 @@ function updatePubSummary(){
     setSub('pubChipSub'+key,p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):''));
   });
   setChip('pubChipRecheck',s.itemsWait,'รายการที่ยังตรวจไม่ได้ '+s.itemsWait+' รายการ (ใน '+s.needRecheck+' เครื่อง)');
-  setSub('pubChipRecheckSub',s.itemsWait?(s.per.filter(p=>p.wait).map(p=>p.l).join(' · ')):'ตรวจครบทุกรายการ');
+  setSub('pubChipRecheckSub',waitBreakdownText(s.per));
   setChip('pubChipPctCoverage',(s.coveragePct==null?'—':s.coveragePct+'%'),s.itemsChecked+' / '+s.itemsTotal+' รายการ');
   setSub('pubChipCoverageSub',s.itemsChecked+'/'+s.itemsTotal+' รายการ');
   setChip('pubChipReady',s.usable,'พร้อมใช้งาน '+s.usable+' · Not Ready '+s.notReady+' (จาก '+KIOSK_COUNT+' เครื่อง)');
@@ -1155,7 +1160,7 @@ function openReportDetail(id){
       // % รายหัวข้อ — ตัวหารคือเครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก)
       ((r.per||[]).map(p=>'<div class="sumchip pct" title="'+esc(p.l)+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังตรวจไม่ได้ '+p.wait+'"><div class="n">'+(p.pct==null?'—':p.pct+'%')+'</div><div class="l">'+esc(p.l)+'</div><div class="s">'+p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):'')+'</div></div>').join(''))+
       '<div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div><div class="s">เครื่อง</div></div>'+
-      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังตรวจไม่ได้</div><div class="s">รายการ</div></div>'+
+      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังตรวจไม่ได้</div><div class="s">'+esc(waitBreakdownText(r.per))+'</div></div>'+
       '<div class="sumchip pct" title="'+(r.itemsChecked==null?'':r.itemsChecked+' / '+r.itemsTotal+' รายการ')+'"><div class="n">'+(r.coveragePct==null?'—':r.coveragePct+'%')+'</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s">'+(r.itemsChecked==null?'—':r.itemsChecked+'/'+r.itemsTotal+' รายการ')+'</div></div>'+
       '<div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div><div class="s">Not Ready '+r.notReady+' เครื่อง</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+

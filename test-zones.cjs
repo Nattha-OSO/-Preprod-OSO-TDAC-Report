@@ -64,5 +64,8 @@ vm.runInContext('buildSingleReportDocxBlob', context)({kiosks, total:20, date:'2
   assert.ok(xml.includes('IMM011 (ตม. มี)'));
   assert.ok(xml.includes('IMM012 (ตม. ไม่ระบุ)'));
   assert.ok((xml.match(/Remark \(หมายเหตุ \+ ภาพถ่าย\)/g) || []).length >= 4);
-  console.log('zone mapping, clicks, legacy preservation and DOCX report XML OK');
+  const waitBreakdownText = vm.runInContext('waitBreakdownText', context);
+  assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:2},{l:'Network',wait:0}]), 'RustDesk 2');
+  assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:0}]), 'ตรวจครบทุกรายการ');
+  console.log('zone mapping, clicks, legacy preservation, DOCX report XML and wait breakdown OK');
 }).catch(e => { console.error(e); process.exitCode = 1; });

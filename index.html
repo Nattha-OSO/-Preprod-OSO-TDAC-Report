@@ -108,7 +108,7 @@
   .sumchip .n{font-size:26px;font-weight:800;color:var(--navy);line-height:1.1}
   .sumchip .l{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:3px}
   .sumchip.ok .n{color:var(--green)}.sumchip.bad .n{color:var(--rose)}.sumchip.pct .n{color:var(--primary)}
-  .sumchip.warn{background:#fffbeb;border-color:#fcd34d}.sumchip.warn .n{color:#b45309}
+  .sumchip.warn{background:#fffbeb;border-color:#fcd34d}.sumchip.warn .n{color:#b45309}.sumchip.warn .s{color:#b45309;font-weight:700}
   .resume-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:600;line-height:1.5}
   .resume-bar .resume-actions{display:flex;gap:8px;flex-shrink:0}
   .resume-bar .resume-actions .btn{padding:7px 15px;font-size:13px}
@@ -346,7 +346,7 @@
           <div class="sumchip pct"><div class="n" id="pubChipPctNetwork">—</div><div class="l">Network</div><div class="s" id="pubChipSubNetwork">0/0 ตรวจได้</div></div>
           <!-- แถว 2: ภาพรวม -->
           <div class="sumchip"><div class="n" id="pubChipTotal">20</div><div class="l">Kiosks Total</div><div class="s">เครื่อง</div></div>
-          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">ยังตรวจไม่ได้</div><div class="s" id="pubChipRecheckSub">รายการ</div></div>
+          <div class="sumchip warn"><div class="n" id="pubChipRecheck">0</div><div class="l">ยังตรวจไม่ได้</div><div class="s" id="pubChipRecheckSub">ตรวจครบทุกรายการ</div></div>
           <div class="sumchip pct"><div class="n" id="pubChipPctCoverage">—</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s" id="pubChipCoverageSub">0/60 รายการ</div></div>
           <!-- แถว 3: เครื่องที่ใช้งานได้ + Website -->
           <div class="sumchip ok"><div class="n" id="pubChipReady">0</div><div class="l">พร้อมใช้งาน</div><div class="s" id="pubChipReadySub">Not Ready 0 เครื่อง</div></div>
@@ -644,9 +644,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=28"></script>
+<script src="config.js?v=29"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
