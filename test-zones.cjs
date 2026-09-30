@@ -119,7 +119,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   // ---- เวอร์ชันระบบ 2026.10.00 แสดงครบทุกจุด ----
   assert.equal(vm.runInContext('APP_RELEASE', context), '2026.10.00');
   assert.ok(/^\d{4}\.\d{2}\.\d{2}$/.test(vm.runInContext('APP_RELEASE', context)), 'release format YYYY.MM.NN');
-  assert.ok(xml.includes('เวอร์ชันระบบ') && xml.includes('2026.10.00'), 'version row in DOCX report');
+  assert.ok(!xml.includes('เวอร์ชันระบบ') && !xml.includes('2026.10.00'), 'no version row in DOCX report');
   const pageHtml = fs.readFileSync(__dirname + '/index.html', 'utf8');
   assert.equal((pageHtml.match(/data-release/g) || []).length, 2, 'public + login labels');
   assert.ok(fs.readFileSync(__dirname + '/guide.html', 'utf8').includes('เวอร์ชัน 2026.10.00'), 'guide footer');
