@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='33';
+const APP_VERSION='34';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -1359,8 +1359,8 @@ async function savePerms(){
    ============================================================ */
 function dEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
 function dRun(text,o){o=o||{};const sz=Math.round((o.sz||22)*1.3);const rpr='<w:rPr><w:rFonts w:ascii="TH Sarabun New" w:hAnsi="TH Sarabun New" w:cs="TH Sarabun New"/>'+(o.bold?'<w:b/><w:bCs/>':'')+'<w:color w:val="'+(o.color||'1f2937')+'"/><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/></w:rPr>';const lines=String(text==null?'':text).split('\n');let out='';for(let i=0;i<lines.length;i++){if(i>0)out+='<w:r>'+rpr+'<w:br/></w:r>';out+='<w:r>'+rpr+'<w:t xml:space="preserve">'+dEsc(lines[i])+'</w:t></w:r>';}return out;}
-function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
-function dHeading(text){return dPar(text,{sz:26,bold:true,color:'1749c4',before:200,after:80});}
+function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';const pb=o.pageBreak?'<w:pageBreakBefore/>':'';return '<w:p><w:pPr>'+pb+'<w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
+function dHeading(text,o){return dPar(text,Object.assign({sz:26,bold:true,color:'1749c4',before:200,after:80},o||{}));}
 function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 // เซลล์ที่ส่งเป็น {xml:'<w:p>...'} จะใส่ XML นั้นตรง ๆ (ใช้กับเซลล์ที่มีทั้งข้อความและรูป)
 /* opts.headerAlign = การจัดวางหัวตาราง (ค่าเริ่มต้น 'center' — ส่ง 'left' ได้ถ้าแถวแรกไม่ใช่หัวตารางจริง)
@@ -1513,7 +1513,7 @@ async function buildSingleReportDocxBlob(r){
       return dPhotoXml(rid,Math.round(wpx*9525),Math.round(hpx*9525),pid,fname,opt);
     }catch(e){photoFailed++;return '';}
   }
-  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) แยกตามโซน');
+  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) แยกตามโซน',{pageBreak:true});   // เริ่มหน้าใหม่
   // ponytail: เก็บสถานะรายเครื่องเดิมไว้ใน remark; โซนที่ข้อมูลเก่าต่างกันแสดงรายเครื่องจนกว่าจะเลือกใหม่
   const KW=[1100,1000,1000,1000,2100,3800];
   const KPHOTO_PX=205;                         // รูปกว้างสุดในเซลล์ Remark (≈ 2.1 นิ้ว)
