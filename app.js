@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='30';
+const APP_VERSION='31';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -382,6 +382,9 @@ function setRecheck(body,id,val){
   const chip=body.querySelector('.recheck-time[data-kiosk="'+id+'"]');
   if(chip){if(val){chip.textContent='✓ ตรวจเมื่อ '+val;chip.style.display='';}else{chip.textContent='';chip.style.display='none';}}
 }
+// เวลาที่ตรวจเครื่องนี้ล่าสุด: มีหัวข้อที่ตรวจแล้ว (✓/✘) → เวลาปัจจุบัน · ยัง ⏳ ครบทุกหัวข้อ → ว่าง
+function checkTimeFor(states){return (states||[]).some(x=>x!=='wait')?nowHM():'';}
+function refreshCheckTime(body,id){setRecheck(body,id,checkTimeFor(subChips(body,id).map(b=>b?b.dataset.state:'wait')));}
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 function initPublicForm(){
   const body=$('pubKioskBody');if(body&&!body.children.length)body.innerHTML=kioskRowsHtml();
@@ -531,8 +534,8 @@ function cycleSub(btn){
   const order=['wait','ok','no'],cur=btn.dataset.state||'wait',next=order[(order.indexOf(cur)+1)%3];
   btn.dataset.state=next;
   const body=btn.closest('tbody'),id=btn.dataset.kiosk;
-  // เปลี่ยนจาก ⏳ ยังไม่ได้ตรวจ → ✓/✘ = เพิ่งกลับมาตรวจได้ → ลงเวลาปัจจุบัน (ถ้ายังไม่มี)
-  if(cur==='wait'&&next!=='wait'){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
+  // ทุกครั้งที่กดสลับ → อัปเดตเวลาตรวจล่าสุดของเครื่องนี้เป็นเวลาปัจจุบัน (เดิมลงครั้งแรกครั้งเดียวแล้วค้าง)
+  refreshCheckTime(body,id);
   syncRowBtn(body,id);
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
@@ -549,7 +552,7 @@ function kioskCheckAll(btn){
   const body=btn.closest('tbody'),id=btn.dataset.kiosk,chips=subChips(body,id);
   const allOk=chips.every(b=>b&&b.dataset.state==='ok');
   chips.forEach(b=>{if(b)b.dataset.state=allOk?'wait':'ok';});
-  if(!allOk){const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(rc&&!rc.value.trim())setRecheck(body,id,nowHM());}
+  refreshCheckTime(body,id);
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 function readKiosks(bodyId){

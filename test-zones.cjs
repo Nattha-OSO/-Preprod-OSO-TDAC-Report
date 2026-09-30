@@ -70,5 +70,14 @@ assert.ok(!copy.includes('ยังตรวจไม่ได้'));
 assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:2},{l:'Network',wait:0}]), 'RustDesk 2');
   assert.equal(waitBreakdownText([{l:'System',wait:0},{l:'RustDesk',wait:0}]), 'ตรวจครบทุกรายการ');
-  console.log('zone mapping, clicks, legacy preservation, DOCX report XML and wait breakdown OK');
+  // เวลาตรวจต้องเป็นเวลาปัจจุบันทุกครั้งที่กด และล้างเมื่อกลับเป็น ⏳ ครบ
+  const RealDate = vm.runInContext('Date', context);
+  const at = (h, m) => { context.Date = class extends RealDate { constructor() { super(2026, 8, 30, h, m); } }; };
+  const checkTimeFor = vm.runInContext('checkTimeFor', context);
+  at(10, 5);  assert.equal(checkTimeFor(['ok', 'wait', 'wait']), '10:05');
+  at(10, 47); assert.equal(checkTimeFor(['ok', 'ok', 'wait']), '10:47');
+  at(11, 2);  assert.equal(checkTimeFor(['ok', 'ok', 'no']), '11:02');
+  assert.equal(checkTimeFor(['wait', 'wait', 'wait']), '');
+  vm.runInContext('delete globalThis.Date', context);
+  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown and live check time OK');
 }).catch(e => { console.error(e); process.exitCode = 1; });
