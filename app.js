@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='34';
+const APP_VERSION='35';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -1359,7 +1359,7 @@ async function savePerms(){
    ============================================================ */
 function dEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
 function dRun(text,o){o=o||{};const sz=Math.round((o.sz||22)*1.3);const rpr='<w:rPr><w:rFonts w:ascii="TH Sarabun New" w:hAnsi="TH Sarabun New" w:cs="TH Sarabun New"/>'+(o.bold?'<w:b/><w:bCs/>':'')+'<w:color w:val="'+(o.color||'1f2937')+'"/><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/></w:rPr>';const lines=String(text==null?'':text).split('\n');let out='';for(let i=0;i<lines.length;i++){if(i>0)out+='<w:r>'+rpr+'<w:br/></w:r>';out+='<w:r>'+rpr+'<w:t xml:space="preserve">'+dEsc(lines[i])+'</w:t></w:r>';}return out;}
-function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';const pb=o.pageBreak?'<w:pageBreakBefore/>':'';return '<w:p><w:pPr>'+pb+'<w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
+function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';const pb=(o.keepNext?'<w:keepNext/>':'')+(o.pageBreak?'<w:pageBreakBefore/>':'');return '<w:p><w:pPr>'+pb+'<w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 function dHeading(text,o){return dPar(text,Object.assign({sz:26,bold:true,color:'1749c4',before:200,after:80},o||{}));}
 function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 // เซลล์ที่ส่งเป็น {xml:'<w:p>...'} จะใส่ XML นั้นตรง ๆ (ใช้กับเซลล์ที่มีทั้งข้อความและรูป)
@@ -1371,9 +1371,10 @@ function dTable(rows,widths,headerFill,opts){
   const ctr=opts.center||[],isCtr=ci=>ctr==='all'||(Array.isArray(ctr)&&ctr.indexOf(ci)>=0);
   const grid='<w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
-  const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+(isH?'<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>':'')+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;
+  const trs=rows.map((cells,ri)=>{const isH=ri===0,keep=!!opts.keepTogether&&ri<rows.length-1;return '<w:tr>'+(isH?'<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>':'<w:trPr><w:cantSplit/></w:trPr>')+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;
     const al=isH?(hAlign||null):(isCtr(ci)?'center':null);
-    const inner=(cell&&typeof cell==='object'&&cell.xml!=null)?cell.xml:dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937',align:al});
+    let inner=(cell&&typeof cell==='object'&&cell.xml!=null)?cell.xml:dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937',align:al});
+    if(keep)inner=inner.replace(/<w:pPr>/g,'<w:pPr><w:keepNext/>');   // ทุกย่อหน้าในแถว (ยกเว้นแถวสุดท้าย) ติดกับแถวถัดไป → ตารางไม่ถูกตัดข้ามหน้าถ้าใส่หน้าเดียวได้
     return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="'+(isH?'center':va)+'"/></w:tcPr>'+inner+'</w:tc>';}).join('')+'</w:tr>';}).join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+widths.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
 }
@@ -1382,9 +1383,10 @@ function dKpiCards(cards){
   const grid='<w:tblGrid>'+cards.map(()=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   // card[3] = สีค่าตัวเลข (ถ้ามี) ใช้สีเฉพาะการ์ดได้
   const cell=(t,o)=>'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/><w:vAlign w:val="center"/></w:tcPr>'+dCellPar(t,o)+'</w:tc>';
-  const r1='<w:tr>'+cards.map(c=>cell(c[0],{sz:18,color:'6a7d9b',align:'center'})).join('')+'</w:tr>';
-  const r2='<w:tr>'+cards.map(c=>cell(c[1],{sz:34,bold:true,color:c[3]||'0b2f6b',align:'center'})).join('')+'</w:tr>';
-  const r3='<w:tr>'+cards.map(c=>cell(c[2],{sz:18,color:'6a7d9b',align:'center'})).join('')+'</w:tr>';
+  const K=x=>x.replace(/<w:pPr>/g,'<w:pPr><w:keepNext/>');   // การ์ด 3 แถวติดกัน ไม่ถูกตัดข้ามหน้า
+  const r1='<w:tr><w:trPr><w:cantSplit/></w:trPr>'+cards.map(c=>K(cell(c[0],{sz:18,color:'6a7d9b',align:'center'}))).join('')+'</w:tr>';
+  const r2='<w:tr><w:trPr><w:cantSplit/></w:trPr>'+cards.map(c=>K(cell(c[1],{sz:34,bold:true,color:c[3]||'0b2f6b',align:'center'}))).join('')+'</w:tr>';
+  const r3='<w:tr><w:trPr><w:cantSplit/></w:trPr>'+cards.map(c=>cell(c[2],{sz:18,color:'6a7d9b',align:'center'})).join('')+'</w:tr>';
   return '<w:tbl><w:tblPr><w:tblW w:w="'+(w*cards.length)+'" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+r1+r2+r3+'</w:tbl>'+dPar('',{after:80});
 }
 // โหลดไบต์โลโก้ (cache) สำหรับฝังใน DOCX
@@ -1412,7 +1414,7 @@ function addLogoMedia(wordFolder,logos){if(logos&&logos.tdac&&logos.somapa){cons
 // ตารางคีย์-ค่า (ไม่มีแถวหัว) — คอลัมน์ซ้ายเป็นป้ายชื่อ
 function dKvTable(pairs,w1,w2){
   const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
-  const trs=pairs.map(p=>'<w:tr>'+
+  const trs=pairs.map(p=>'<w:tr><w:trPr><w:cantSplit/></w:trPr>'+
     '<w:tc><w:tcPr><w:tcW w:w="'+w1+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/><w:vAlign w:val="center"/></w:tcPr>'+dCellPar(p[0],{sz:20,bold:true,color:'0b2f6b'})+'</w:tc>'+
     '<w:tc><w:tcPr><w:tcW w:w="'+w2+'" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'+dCellPar(p[1],{sz:20,color:'1f2937'})+'</w:tc></w:tr>').join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+(w1+w2)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr><w:tblGrid><w:gridCol w:w="'+w1+'"/><w:gridCol w:w="'+w2+'"/></w:tblGrid>'+trs+'</w:tbl>'+dPar('',{after:80});
@@ -1490,9 +1492,9 @@ async function buildSingleReportDocxBlob(r){
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
   if(TL.rechecks.length){
-    body+=dHeading('รายละเอียดเครื่องที่กลับไปตรวจซ้ำ');
+    body+=dHeading('รายละเอียดเครื่องที่กลับไปตรวจซ้ำ',{keepNext:true});
     const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
-    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000],null,{center:'all'});
+    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000],null,{center:'all',keepTogether:true});
   }
   /* ---- ตัวช่วยฝังรูปลงเอกสาร (ใช้ร่วมกันทั้งเซลล์หมายเหตุรายเครื่อง และภาพประกอบท้ายรายงาน) ----
      ทุกรูปผ่านทางนี้ทางเดียว จึงนับเลขไฟล์/relationship ต่อเนื่องกันได้ ไม่ชนกัน
@@ -1520,8 +1522,8 @@ async function buildSingleReportDocxBlob(r){
   for(const zone of ZONES){
     const state=zoneImmSummary(r.kiosks,zone);
     const zoneKiosks=zone.ids.map(id=>(r.kiosks||[]).find(k=>k.kiosk_id===id)).filter(Boolean);
-    body+=dHeading(zone.title+' · '+zone.ids[0]+'–'+zone.ids[zone.ids.length-1]);
-    body+=dPar('เจ้าหน้าที่ ตม. ประจำจุด: '+(state==='yes'?'มี':state==='no'?'ไม่มี':state==='mixed'?'ข้อมูลเดิมต่างกัน (แสดงสถานะรายเครื่องด้านล่าง)':'ยังไม่ระบุ'),{sz:20,color:'0b2f6b',after:50});
+    body+=dHeading(zone.title+' · '+zone.ids[0]+'–'+zone.ids[zone.ids.length-1],{keepNext:true});
+    body+=dPar('เจ้าหน้าที่ ตม. ประจำจุด: '+(state==='yes'?'มี':state==='no'?'ไม่มี':state==='mixed'?'ข้อมูลเดิมต่างกัน (แสดงสถานะรายเครื่องด้านล่าง)':'ยังไม่ระบุ'),{sz:20,color:'0b2f6b',after:50,keepNext:true});
     const krows=[];
     for(const k of zoneKiosks){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
@@ -1541,9 +1543,9 @@ async function buildSingleReportDocxBlob(r){
       cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:(txt?60:20),after:i===pics.length-1?20:40});
     krows.push([idText,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('—',{sz:20,color:'9aa7bd'})}]);
     }
-    if(krows.length)body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3]});
+    if(krows.length)body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3],keepTogether:true});   // ตารางโซนใส่หน้าเดียวไม่พอ → ย้ายทั้งตารางไปเริ่มหน้าใหม่
   }
-  body+=dHeading('Website / Mobile Checklist');
+  body+=dHeading('Website / Mobile Checklist',{keepNext:true});
   /* รูปของ Website (PC/Mobile) ไปอยู่ในช่อง Remark ของแถวนั้น ๆ เช่นเดียวกับ Kiosk */
   const WPHOTO_PX=300;                         // รูปกว้างสุดในเซลล์ Remark ของ Website (≈ 3.1 นิ้ว)
   const webCell=async(remark,paths)=>{
@@ -1556,7 +1558,7 @@ async function buildSingleReportDocxBlob(r){
   };
   body+=dTable([['Platform','System Ready','Remark (หมายเหตุ + ภาพถ่าย)'],
     ['Website (PC)',r.webPc?yes:no,await webCell(r.webPcRemark,r.web_pc_photos||r.webPcPhotos)],
-    ['Website (Mobile)',r.webMobile?yes:no,await webCell(r.webMobileRemark,r.web_mobile_photos||r.webMobilePhotos)]],[2700,2200,5100],null,{vAlign:'top',center:[1]});
+    ['Website (Mobile)',r.webMobile?yes:no,await webCell(r.webMobileRemark,r.web_mobile_photos||r.webMobilePhotos)]],[2700,2200,5100],null,{vAlign:'top',center:[1],keepTogether:true});
   body+=dHeading('รายละเอียดการรับแจ้งปัญหา / ข้อเสนอแนะ');
   body+=dPar(r.issue||'— ไม่มี —',{fill:'F4F6F9'});
   // ---- ภาพประกอบเฉพาะข้อเสนอแนะ — รูปของ Kiosk และ Website อยู่ในช่อง Remark ของแถวนั้น ๆ แล้ว ----

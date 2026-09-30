@@ -119,6 +119,25 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.ok(xml.includes('ยังไม่ได้ตรวจ RustDesk — ผู้โดยสารใช้งานอยู่'), 'status text');
   assert.equal(xml.split('— ผู้โดยสารใช้งานอยู่').length - 1, 1, 'label only on IMM007');
   assert.ok(xml.includes('ผู้โดยสารกำลังทำรายการ'), 'inspector text kept in Remark');
+  // ---- ตารางในรายงาน: แถวไม่ถูกตัดข้ามหน้า + ตารางโซนย้ายไปเริ่มหน้าใหม่ได้ทั้งก้อนเมื่อใส่ไม่พอ ----
+  if (process.env.DUMP_XML) fs.writeFileSync(process.env.DUMP_XML, xml);
+  const tables = xml.split('<w:tbl>').slice(1).map(x => x.split('</w:tbl>')[0]);
+  const zoneTables = tables.filter(x => x.includes('Remark (หมายเหตุ'));
+  assert.ok(zoneTables.length >= 4, 'zone tables present');
+  for (const tb of tables) {
+    const rows = tb.split('<w:tr>').slice(1);
+    assert.ok(rows.every(r => r.startsWith('<w:trPr>') && r.includes('<w:cantSplit/>')), 'every row is cantSplit');
+  }
+  for (const tb of zoneTables.slice(0, 4)) {
+    const rows = tb.split('<w:tr>').slice(1);
+    rows.slice(0, -1).forEach((r, i) => assert.ok(!r.includes('<w:p>') || (r.match(/<w:p>/g) || []).length === (r.match(/<w:p><w:pPr><w:keepNext\/>/g) || []).length, 'row ' + i + ' keeps with next'));
+    assert.ok(!rows[rows.length - 1].includes('<w:keepNext/>'), 'last row must not chain to following content');
+  }
+  // หัวข้อโซน + บรรทัดสถานะ ตม. ต้องไปกับตาราง
+  for (const zt of ['Zone 1 ·', 'Zone 4 ·']) {
+    const i = xml.indexOf(zt), ps = xml.lastIndexOf('<w:p>', i);
+    assert.ok(xml.slice(ps, i).includes('<w:keepNext/>'), zt + ' heading keeps with table');
+  }
   // ---- ปุ่มในฟอร์ม: กดได้เฉพาะเครื่องที่ยังมี ⏳ และล้างเองเมื่อตรวจครบ ----
   const el = (state) => ({ dataset:{ state }, classList:{ toggle(){}, remove(){}, add(){} }, textContent:'' });
   const id = 'IMM007', els = {};
