@@ -429,17 +429,23 @@
     <div class="step highlight">
       <div class="step-num">5</div>
       <span class="step-icon">🖥️</span>
-      <h3>Kiosk Checklist</h3>
-      <p><strong>ขออนุญาต ตม. ก่อน</strong> แล้วตรวจสอบเครื่อง Kiosk หมายเลข IMM001–IMM020</p>
+      <h3>Kiosk Checklist (4 โซน)</h3>
+      <p><strong>ขออนุญาต ตม. ก่อน</strong> แล้วตรวจเครื่อง IMM001–IMM020 ตามโซน · เลือก "ตม. ประจำจุด" ครั้งเดียวต่อโซน</p>
     </div>
     <div class="step">
       <div class="step-num">6</div>
       <span class="step-icon">📝</span>
       <h3>บันทึกปัญหา</h3>
-      <p>กรอกรายละเอียดปัญหา/ข้อเสนอแนะจากเจ้าหน้าที่ ตม.</p>
+      <p>กรอกรายละเอียดปัญหา/ข้อเสนอแนะจากเจ้าหน้าที่ ตม. (แนบรูปได้)</p>
     </div>
     <div class="step highlight">
       <div class="step-num">7</div>
+      <span class="step-icon">🕒</span>
+      <h3>เวลาที่ตรวจเสร็จ</h3>
+      <p>ที่การ์ดด้านล่างก่อนปุ่มส่ง กด "ใช้เวลาปัจจุบัน" หรือพิมพ์เอง (ถ้าเว้นว่างระบบใช้เวลาตอนกดส่ง)</p>
+    </div>
+    <div class="step highlight">
+      <div class="step-num">8</div>
       <span class="step-icon">📨</span>
       <h3>ส่งรายงาน</h3>
       <p>กรอกอีเมลผู้รับ แล้วกด "ส่งรายงานการตรวจสอบ" ระบบบันทึกข้อมูลและส่งไฟล์รายงาน (DOCX) ให้อัตโนมัติ</p>
@@ -482,6 +488,15 @@
           <div class="zone-dot dot-blue"></div>
           <span><strong>Network Ready</strong> — เชื่อมต่อเครือข่ายได้</span>
         </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#eef4fc; border:1px solid #c7dbf2; border-radius:8px; padding:8px 10px; line-height:1.8;">
+          🗺️ <strong>เครื่องแบ่งเป็น 4 โซน</strong> (ในฟอร์มและในรายงาน)<br>
+          <strong>Zone 1</strong> IMM001–006 · ช่องตรวจ ตม. ฝั่งตะวันตก<br>
+          <strong>Zone 2</strong> IMM007–010 · Fast Track<br>
+          <strong>Zone 3</strong> IMM011–016 · ช่องตรวจ ตม. ฝั่งตะวันออก<br>
+          <strong>Zone 4</strong> IMM017–020 · พิธีการ<br>
+          👮 <strong>ตม. ประจำจุด</strong> — เลือกที่แถบหัวโซน <strong>ปุ่มเดียวต่อโซน</strong> กดสลับ
+          <em>ยังไม่ระบุ → มี → ไม่มี</em> แล้วใช้กับทุกเครื่องในโซนนั้นทันที (ไม่ต้องกดรายเครื่อง)
+        </div>
         <div style="margin-top:6px; font-size:11px; color:var(--muted);">
           💡 กด <strong>Check All</strong> เมื่อผ่านทั้ง 3 รายการ · กดปุ่มแต่ละรายการเพื่อสลับ
           <strong>⏳ ยังไม่ได้ตรวจ (ค่าตั้งต้น) → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้</strong>
@@ -494,8 +509,11 @@
           แล้วกลับไปอัปเดตผลตรวจเมื่อเครื่องว่าง<br>
           <strong>⏳ = ยังไม่ได้ตรวจ</strong> (ไม่ใช่เครื่องเสีย) · <strong>✘ = ใช้งานไม่ได้</strong> (นับเป็น Not Ready)<br>
           🧍 <strong>ปุ่ม "ผู้โดยสารใช้งานอยู่"</strong> — กดที่แถวของเครื่องนั้นเมื่อยังตรวจบางหัวข้อไม่ได้เพราะมีผู้โดยสารใช้อยู่
-          ระบบจะแสดงเหตุผลนี้ในการ์ดสรุป ("ผู้โดยสารใช้งานอยู่ N เครื่อง") และในรายงาน DOCX
-          เมื่อกลับมาตรวจครบทุกหัวข้อ ปุ่มจะถูกล้างเอง (ใช้ได้เฉพาะเครื่องที่ยังมีหัวข้อ ⏳ ค้างอยู่)
+          แถวจะเป็นสีส้มอ่อน และระบบแสดงเหตุผลนี้ในการ์ด "ยังไม่ได้ตรวจ" ("ผู้โดยสารใช้งานอยู่ N เครื่อง")
+          กับในรายงาน DOCX (สถานะเครื่อง + สรุปที่หัวรายงาน) โดย<strong>ไม่นับเป็นเครื่องเสีย</strong>
+          เมื่อกลับมาตรวจครบทุกหัวข้อ ปุ่มจะถูกล้างเอง (กดได้เฉพาะเครื่องที่ยังมีหัวข้อ ⏳ ค้างอยู่)<br>
+          🕘 ระบบ<strong>ไม่บันทึกเวลารายเครื่อง</strong> — จะกดตรวจทีละเครื่องหรือกรอกทั้งหมดในครั้งเดียวก็ได้
+          ใช้เวลาเริ่ม/เวลาตรวจเสร็จของทั้งรอบเป็นตัวคิดระยะเวลา
         </div>
         <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; line-height:1.7;">
           📊 <strong>การคิด % ของการ์ดแต่ละหัวข้อ</strong> — คิดจาก
@@ -525,6 +543,15 @@
         <div style="margin-top:6px; font-size:11px; color:var(--muted);">
           📏 จำกัด 1,000 ตัวอักษร
         </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#fff8f0; border:1px solid #ffd9b0; border-radius:8px; padding:8px 10px; line-height:1.7;">
+          📷 <strong>รูปประกอบ</strong> — กด "📷 ถ่ายรูป" หรือ "🖼️ แนบรูป" ได้ที่ช่อง Remark ของแต่ละเครื่อง, Website (PC/Mobile) และช่องข้อเสนอแนะ
+          แนบได้สูงสุด <strong>3 รูปต่อช่อง</strong> รูปจะอยู่ในรายงาน DOCX ตรงแถว/หัวข้อนั้น
+        </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#f4f7fb; border:1px solid #d5dfec; border-radius:8px; padding:8px 10px; line-height:1.7;">
+          🕒 <strong>เวลาที่ตรวจสอบเสร็จ</strong> — การ์ดอยู่ท้ายฟอร์มก่อนปุ่มส่งรายงาน กด <strong>"ใช้เวลาปัจจุบัน"</strong> เมื่อตรวจครบ
+          หรือพิมพ์เวลาเอง · ถ้าเว้นว่าง ระบบจะใช้เวลาตอนกดส่งให้อัตโนมัติ<br>
+          (เวลาเริ่มตรวจเติมตามรอบให้อัตโนมัติ: IMP/D = 10:00 · IMP/N = 22:00 แก้ได้)
+        </div>
       </div>
     </div>
 
@@ -550,15 +577,32 @@
     <div class="tip danger">
       <div class="tip-icon">⚠️</div>
       <div class="tip-body">
-        <strong>Remark ไม่ใช่ตัวชี้วัด "Not Ready"</strong>
-        <p>เครื่องถูกนับว่า Not Ready เมื่อ checkbox ใดใดยังไม่ได้ติ๊ก ไม่ใช่เพราะมี Remark</p>
+        <strong>เมื่อไหร่ถึงเป็น "Not Ready" และต้องใส่ Remark</strong>
+        <p>เครื่องเป็น Not Ready เมื่อมีหัวข้อที่กดเป็น <strong>✘ ใช้งานไม่ได้</strong> — ต้องใส่ Remark บอกเหตุผล · หัวข้อ <strong>⏳ ยังไม่ได้ตรวจ</strong> (รวมกรณีผู้โดยสารใช้งานอยู่) ไม่นับเป็นเครื่องเสียและไม่ต้องใส่ Remark</p>
       </div>
     </div>
     <div class="tip success">
       <div class="tip-icon">✅</div>
       <div class="tip-body">
         <strong>Summary Bar อ่านผลรวมได้ทันที</strong>
-        <p>ด้านบนรายงานแสดง All Ready / Not Ready / Readiness % แบบ real-time</p>
+        <p>การ์ดด้านบนฟอร์มแสดง % แต่ละหัวข้อ (System / RustDesk / Network), ยังไม่ได้ตรวจ (แยกรายหัวข้อ), ความครบถ้วนการตรวจ, จำนวนเครื่องพร้อมใช้งาน และสถานะ Website แบบ real-time</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip-row">
+    <div class="tip info">
+      <div class="tip-icon">💾</div>
+      <div class="tip-body">
+        <strong>ข้อมูลที่กรอกไม่หายเมื่อรีเฟรช</strong>
+        <p>ระบบจำข้อมูลที่กรอกค้างไว้ในเครื่อง (ช่อง "ตรวจเสร็จเวลา" ให้กรอกใหม่) · กะถัดไปกด <strong>🧹 เคลียร์ข้อมูลก่อนหน้า</strong> เพื่อเริ่มฟอร์มเปล่า</p>
+      </div>
+    </div>
+    <div class="tip success">
+      <div class="tip-icon">↩️</div>
+      <div class="tip-body">
+        <strong>ส่งแล้วต้องแก้/เพิ่มผลตรวจ</strong>
+        <p>ที่หน้า "บันทึกรายงานเรียบร้อย" กด <strong>"แก้/ตรวจเพิ่มรอบนี้"</strong> แล้วส่งซ้ำ ระบบอัปเดตรายงานเดิม ไม่เกิดรายงานซ้ำ · หรือกด <strong>"ทำรายงานรอบถัดไป"</strong></p>
       </div>
     </div>
   </div>
@@ -576,6 +620,7 @@
       <div class="platform-note">
         <span>📧 ระบบส่งไฟล์ Word (DOCX) ให้อัตโนมัติ</span>
         <span>📊 ข้อมูลถูกบันทึกเข้าระบบส่วนกลางทันที</span>
+        <span>🗺️ รายการ Kiosk ในไฟล์แยกตามโซน — ส่วนรายละเอียด Kiosk เริ่มหน้าใหม่ และตารางไม่ถูกตัดข้ามหน้า</span>
       </div>
       <div style="margin-top:8px; font-size:12px; opacity:.85; line-height:1.7;">
         📄 ชื่อไฟล์รายงาน: <strong>DDMMYYYY_1-OSO-TDAC-Report.docx</strong> (รอบกลางวัน IMP/D)<br>
