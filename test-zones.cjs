@@ -25,7 +25,7 @@ assert.equal((result.html.match(/class="imm-val"/g) || []).length, 20);
 for (const state of ['yes','no']) assert.equal(result.split(result.join(state, 'บันทึก')).imm, state);
 // Simulate a restored legacy report whose machines in one zone have different values.
 const values = Object.fromEntries(result.zones.flatMap(z => Array.from(z.ids, id => [id, {value: ''}])));
-const buttons = result.zones.map((_, i) => ({dataset: {zone: String(i), state: ''}, closest: () => body}));
+const buttons = result.zones.map((_, i) => ({dataset: {zone: String(i), state: ''}, classList: {remove(){}, add(){}, toggle(){}}, closest: () => body}));
 const body = {id: 'editKioskBody', querySelector(selector) {
   const id = /data-kiosk="([^"]+)"/.exec(selector)?.[1];
   const zone = /data-zone="(\d+)"/.exec(selector)?.[1];
@@ -123,6 +123,15 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   const pageHtml = fs.readFileSync(__dirname + '/index.html', 'utf8');
   assert.equal((pageHtml.match(/data-release/g) || []).length, 2, 'public + login labels');
   assert.ok(fs.readFileSync(__dirname + '/guide.html', 'utf8').includes('เวอร์ชัน 2026.10.00'), 'guide footer');
+  // ---- บังคับระบุ ตม. ประจำจุดครบ 4 โซนก่อนส่ง ----
+  const missingImmZones = vm.runInContext('missingImmZones', context);
+  const Yes = 'มีเจ้าหน้าที่ ตม. ประจำจุด', No = 'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด';
+  const allK = (fn) => vm.runInContext('ZONES', context).flatMap((z, zi) => Array.from(z.ids, (id, i) => ({ kiosk_id: id, remark: fn(zi, i) })));
+  assert.deepEqual(Array.from(missingImmZones(allK(() => null)), x => x.i), [0, 1, 2, 3], 'nothing chosen → all 4 zones missing');
+  assert.deepEqual(Array.from(missingImmZones(allK(zi => (zi === 1 ? null : Yes))), x => x.i), [1], 'only zone 2 missing');
+  assert.deepEqual(Array.from(missingImmZones(allK(zi => (zi % 2 ? No : Yes))), x => x.i), [], 'yes/no in every zone → can submit');
+  assert.deepEqual(Array.from(missingImmZones(allK((zi, i) => (zi === 2 && i === 0 ? Yes : zi === 2 ? No : Yes))), x => x.i), [2], 'mixed zone counts as not chosen');
+  assert.deepEqual(Array.from(missingImmZones(allK(() => 'หมายเหตุอย่างเดียว')), x => x.i), [0, 1, 2, 3], 'free-text remark does not count');
   // ---- ตารางในรายงาน: แถวไม่ถูกตัดข้ามหน้า + ตารางโซนย้ายไปเริ่มหน้าใหม่ได้ทั้งก้อนเมื่อใส่ไม่พอ ----
   if (process.env.DUMP_XML) fs.writeFileSync(process.env.DUMP_XML, xml);
   const tables = xml.split('<w:tbl>').slice(1).map(x => x.split('</w:tbl>')[0]);

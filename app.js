@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='39';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='40';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -18,7 +18,7 @@ const ZONES=[
 const SUBSYS=[{t:'system',l:'System'},{t:'rustdesk',l:'RustDesk'},{t:'network',l:'Network'}];
 const SHIFTS=['IMP/D 10:00','IMP/N 22:00'];
 // เจ้าหน้าที่ ตม. ประจำจุดของเครื่องนั้น ๆ: '' ยังไม่ระบุ · 'yes' มี · 'no' ไม่มี
-const IMM_LABEL={'':'👮 ตม. ประจำจุด?','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด','mixed':'👮 ข้อมูลเดิมต่างกัน — เลือกใหม่ทั้งโซน'};
+const IMM_LABEL={'':'👮 ตม. ประจำจุด? (ต้องเลือก)','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด','mixed':'👮 ข้อมูลเดิมต่างกัน — เลือกใหม่ทั้งโซน'};
 const IMM_REMARK={'yes':'มีเจ้าหน้าที่ ตม. ประจำจุด','no':'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด'};
 // เครื่องที่ยังมีหัวข้อ ⏳ เพราะมีผู้โดยสารใช้งานอยู่ — เก็บเป็นบรรทัดในหมายเหตุ (ไม่ต้องเพิ่มคอลัมน์ฐานข้อมูล)
 const PAX_REMARK='ผู้โดยสารใช้งานอยู่';
@@ -364,6 +364,10 @@ function immJoin(imm,text,pax){
 }
 // เครื่องที่ผู้โดยสารใช้งานอยู่จริง = มีบรรทัดนี้ และยังมีหัวข้อ ⏳ ค้าง (ตรวจครบแล้วไม่นับ)
 function paxKiosks(arr){return (arr||[]).filter(k=>immSplit(k.remark).pax&&kioskWaitItems(k).length);}
+// โซนที่ยังไม่ได้ระบุ "มี/ไม่มี ตม. ประจำจุด" (ว่าง หรือข้อมูลเดิมในโซนไม่ตรงกัน) — ต้องระบุครบทั้ง 4 โซนก่อนส่งรายงาน
+function missingImmZones(kiosks){
+  return ZONES.map((z,i)=>({i,z,s:zoneImmSummary(kiosks,z)})).filter(x=>x.s===''||x.s==='mixed');
+}
 function zoneImmSummary(kiosks,zone){
   const byId=new Map((kiosks||[]).map(k=>[k.kiosk_id,immSplit(k.remark).imm]));
   const states=zone.ids.map(id=>byId.get(id)||'');
@@ -381,6 +385,7 @@ function syncZoneImm(body,i){
 }
 // กดสลับสถานะทั้งโซน; ข้อมูลเก่าที่ต่างกันจะคงเดิมจนกดเลือกใหม่
 function cycleImm(btn){
+  btn.classList.remove('invalidf');
   const order=['','yes','no'],cur=btn.dataset.state==='mixed'?'':(btn.dataset.state||''),next=order[(order.indexOf(cur)+1)%3];
   const body=btn.closest('tbody'),i=Number(btn.dataset.zone);
   ZONES[i].ids.forEach(id=>setImm(body,id,next));syncZoneImm(body,i);
@@ -744,6 +749,16 @@ async function submitPublic(){
   if(!officer)return toast('กรุณาเลือกชื่อเจ้าหน้าที่ผู้ตรวจสอบ',true);
   const kiosks=readKiosks('pubKioskBody'),st=readinessStats(kiosks,KIOSK_COUNT),ready=st.ready,pct=st.pct;
   const email=($('pubEmail').value||'').trim();
+  // ── บังคับระบุ "มี/ไม่มี ตม. ประจำจุด" ให้ครบทั้ง 4 โซน — ไม่ระบุจะส่งรายงานไม่ได้ ──
+  document.querySelectorAll('#pubForm .btn-imm.invalidf').forEach(el=>el.classList.remove('invalidf'));
+  const noImm=missingImmZones(kiosks);
+  if(noImm.length){
+    noImm.forEach(x=>{const b=document.querySelector('#pubKioskBody .btn-imm[data-zone="'+x.i+'"]');if(b)b.classList.add('invalidf');});
+    const first=document.querySelector('#pubKioskBody .btn-imm[data-zone="'+noImm[0].i+'"]');
+    alert('ยังไม่สามารถส่งรายงานได้\n\nกรุณาระบุว่า "มี" หรือ "ไม่มี" เจ้าหน้าที่ ตม. ประจำจุด ให้ครบทุกโซน\n\nโซนที่ยังไม่ได้ระบุ:\n· '+noImm.map(x=>x.z.title).join('\n· ')+'\n\n(กดปุ่ม 👮 ที่หัวโซนเพื่อเลือก มี / ไม่มี)');
+    if(first){first.scrollIntoView({behavior:'smooth',block:'center'});try{first.focus();}catch(_){}}
+    return;
+  }
   // ── บังคับใส่ Remark สำหรับเครื่อง/แพลตฟอร์มที่มีหัวข้อ ✘ (Not Ready) — หัวข้อ ⏳ ยังไม่ได้ตรวจ ไม่ต้องใส่ ──
   document.querySelectorAll('#pubForm .remark-input.invalidf').forEach(el=>el.classList.remove('invalidf'));
   let firstBad=null;const markBad=el=>{if(el){el.classList.add('invalidf');if(!firstBad)firstBad=el;}};
