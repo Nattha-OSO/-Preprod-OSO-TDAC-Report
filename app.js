@@ -5,7 +5,8 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='37';
+const APP_VERSION='38';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -29,6 +30,7 @@ let view='dashboard', filter='', detailId=0;
 const LOADING='<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
 
 // ---------- helpers ----------
+function showReleaseLabels(){document.querySelectorAll('[data-release]').forEach(e=>{e.textContent='เวอร์ชัน '+APP_RELEASE;});}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const num=x=>Number(x||0);
@@ -73,6 +75,7 @@ function boot(){$('public').classList.add('hidden');$('login').classList.add('hi
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();loadPublicOfficers().then(restoreDraftAfterLoad).catch(()=>restoreDraftAfterLoad());}
 
 window.onload=async function(){
+  showReleaseLabels();
   if(!sb){showPublic();initPublicForm();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){sessionStorage.setItem('pw_recovery','1');showResetPw();}});
   if(sessionStorage.getItem('pw_recovery')==='1'||String(location.hash).indexOf('type=recovery')>=0){sessionStorage.setItem('pw_recovery','1');showResetPw();return;}
@@ -940,7 +943,7 @@ function startRealtime(){
     .subscribe();}catch(e){}
 }
 function liveRefresh(){clearTimeout(liveT);liveT=setTimeout(async()=>{try{data=await loadData();if(['dashboard','reports','kiosks','insights'].indexOf(view)>=0)render();toast('อัปเดตข้อมูลล่าสุดแล้ว');}catch(e){}},800);}
-function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();if($('appVer'))$('appVer').textContent='เวอร์ชัน '+APP_VERSION;}
+function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();if($('appVer'))$('appVer').textContent='เวอร์ชัน '+APP_RELEASE;}
 
 function showView(v,btn){
   if((v==='users'||v==='perms'||v==='audit'||v==='autoreport')&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}
@@ -1086,7 +1089,7 @@ function renderHelp(){
   prows+='<tr><td><b>จัดการผู้ใช้ / สิทธิ์ / บันทึกการใช้งาน</b></td>'+ctr('—')+ctr('—')+ctr('—')+ctr('<b>✔</b>')+'</tr>';
   let h='';
   h+=sec('คู่มือการใช้งาน OSO-TDAC Operational Report',
-    '<span class="tag neutral">คู่มือเวอร์ชัน '+APP_VERSION+'</span><br><br>ระบบรายงานการตรวจสอบระบบ TDAC (Website PC+Mobile และ Kiosk IMM001–IMM020) ณ ท่าอากาศยานสุวรรณภูมิ<br>บัญชีของคุณมีสิทธิ์: <span class="tag neutral">'+esc(roleNow)+'</span><br><br>ระบบแบ่งเป็น 2 ส่วน:'+ul([
+    '<span class="tag neutral">เวอร์ชันระบบ '+APP_RELEASE+'</span><br><br>ระบบรายงานการตรวจสอบระบบ TDAC (Website PC+Mobile และ Kiosk IMM001–IMM020) ณ ท่าอากาศยานสุวรรณภูมิ<br>บัญชีของคุณมีสิทธิ์: <span class="tag neutral">'+esc(roleNow)+'</span><br><br>ระบบแบ่งเป็น 2 ส่วน:'+ul([
       '<b>หน้าฟอร์มรายงาน (สาธารณะ)</b> — เจ้าหน้าที่ Onsite Support กรอกรายงานได้เลย ไม่ต้องล็อกอิน',
       '<b>ระบบหลังบ้าน</b> — Senior / Manager / Admin ล็อกอินเพื่อดูสรุป ทำรายงาน และจัดการข้อมูล'
     ]));
@@ -1463,6 +1466,7 @@ async function buildSingleReportDocxBlob(r){
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
+  kv.push(['เวอร์ชันระบบ',APP_RELEASE]);
   body+=dKvTable(kv,3200,6800);
   // การ์ดแถวที่ 1 — % รายหัวข้อ (ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้) + ภาพรวมเครื่อง
   body+=dKpiCards(rst.per.map(p=>[p.l,(p.pct==null?'—':p.pct+'%'),p.ok+' / '+p.checked+' ที่ตรวจได้'+(p.wait?('  ·  ⏳'+p.wait):''),

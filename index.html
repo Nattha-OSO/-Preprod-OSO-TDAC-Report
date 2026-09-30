@@ -465,6 +465,7 @@
         </div>
 
         <button class="btn primary" id="pubSubmit" style="min-height:50px;font-size:15px" onclick="submitPublic()">✓ ส่งรายงานการตรวจสอบ</button>
+        <div class="mini" data-release style="text-align:center;color:#94a3b8;margin-top:2px"></div>
         <div style="height:8px"></div>
       </div>
 
@@ -490,6 +491,7 @@
     </div>
     <h1>OSO-TDAC Operational Report<span class="login-sub">ระบบรายงานการตรวจสอบระบบ TDAC</span></h1>
     <p class="muted">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
+    <p class="mini" data-release style="margin:-6px 0 10px;color:#94a3b8"></p>
     <div id="loginInfo" class="hidden" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
     <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
     <div class="field"><label class="label">Password</label>
@@ -657,9 +659,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=37"></script>
+<script src="config.js?v=38"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=37"></script>
+<script src="app.js?v=38"></script>
 </body>
 </html>
