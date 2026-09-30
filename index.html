@@ -389,10 +389,6 @@
                 <input type="time" class="input" id="pubStart">
                 <div class="mini" style="margin-top:4px">เติมอัตโนมัติตามรอบ (รอบ 1 = 10:00 · รอบ 2 = 22:00) แก้ไขได้</div>
               </div>
-              <div class="field"><label class="label">ตรวจเสร็จเวลา (ถึงเวลาเท่าไหร่)</label>
-                <input type="time" class="input" id="pubEnd">
-                <div class="mini" style="margin-top:4px">เวลาที่ตรวจอุปกรณ์ครบทุกเครื่อง</div>
-              </div>
             </div>
             <div class="form-grid" style="margin-top:4px">
               <div class="field"><label class="label">ชื่อเจ้าหน้าที่ Onsite Support ผู้ทำการตรวจสอบ<span class="req">*</span></label>
@@ -448,6 +444,18 @@
             <textarea class="input" id="pubIssue" maxlength="1000" style="min-height:110px" placeholder="กรอกรายละเอียด เช่น การเปิด-ปิดเคส แจ้งซ่อม หรือข้อเสนอแนะ..." oninput="document.getElementById('pubIssueCount').textContent=this.value.length"></textarea>
             <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:4px"><span id="pubIssueCount">0</span> / 1,000 ตัวอักษร</div>
             <div class="photo-box" id="pubPhoto-issue"></div>
+          </div>
+        </div>
+
+        <!-- เวลาที่ตรวจเสร็จ — อยู่ก่อนปุ่มส่งรายงาน -->
+        <div class="card">
+          <div class="card-h">🕒 เวลาที่ตรวจสอบเสร็จ</div>
+          <div class="card-b">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+              <input type="time" class="input" id="pubEnd" style="max-width:180px">
+              <button type="button" class="btn" id="pubEndNow" onclick="setEndNow()">🕒 ใช้เวลาปัจจุบัน</button>
+            </div>
+            <div class="mini" style="margin-top:6px">กรอกเวลาที่ตรวจอุปกรณ์ครบทุกเครื่อง · ถ้าเว้นว่าง ระบบจะใช้เวลาตอนกดส่งรายงานให้อัตโนมัติ</div>
           </div>
         </div>
 
@@ -644,9 +652,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=31"></script>
+<script src="config.js?v=32"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=31"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='31';
+const APP_VERSION='32';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -385,6 +385,10 @@ function setRecheck(body,id,val){
 // เวลาที่ตรวจเครื่องนี้ล่าสุด: มีหัวข้อที่ตรวจแล้ว (✓/✘) → เวลาปัจจุบัน · ยัง ⏳ ครบทุกหัวข้อ → ว่าง
 function checkTimeFor(states){return (states||[]).some(x=>x!=='wait')?nowHM():'';}
 function refreshCheckTime(body,id){setRecheck(body,id,checkTimeFor(subChips(body,id).map(b=>b?b.dataset.state:'wait')));}
+// ปุ่ม "ใช้เวลาปัจจุบัน" ของช่อง ตรวจเสร็จเวลา (อยู่เหนือปุ่มส่งรายงาน)
+function setEndNow(){const e=$('pubEnd');if(!e)return;e.value=nowHM();e.classList.remove('invalidf');scheduleDraftSave();}
+// เวลาตรวจเสร็จที่ใช้บันทึก: ค่าที่กรอก ถ้าว่างใช้เวลาปัจจุบัน
+function endTimeOrNow(v){return String(v||'').trim()||nowHM();}
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 function initPublicForm(){
   const body=$('pubKioskBody');if(body&&!body.children.length)body.innerHTML=kioskRowsHtml();
@@ -737,7 +741,7 @@ async function submitPublic(){
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
   const inspectStart=($('pubStart').value||'').trim()||shiftStartTime(shift);
-  const inspectEnd=($('pubEnd').value||'').trim()||null;
+  const inspectEnd=endTimeOrNow($('pubEnd').value);
   // ── ตรวจครบก่อนส่ง: ถ้ายังมีหัวข้อที่เป็น ⏳ (ยังไม่ได้ตรวจ) ให้เตือน ──
   if(st.itemsWait>0&&!confirm('ยังมี ⏳ "ยังไม่ได้ตรวจ" อีก '+st.itemsWait+' รายการ ('+st.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')\n\nรายการ ⏳ จะไม่ถูกนับทั้งตัวตั้งและตัวหารของ % รายหัวข้อ\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาอัปเดตรายงานเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
   const report={
