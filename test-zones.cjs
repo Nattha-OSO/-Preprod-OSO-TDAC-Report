@@ -82,6 +82,53 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.equal(endTimeOrNow('11:30'), '11:30');
   assert.equal(endTimeOrNow(''), '11:02');
   assert.equal(endTimeOrNow('  '), '11:02');
-  vm.runInContext('delete globalThis.Date', context);
-  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown and live check time and end-time fallback OK');
+  context.__RealDate = RealDate;
+  vm.runInContext('globalThis.Date = __RealDate', context);
+}).then(() => {
+  // ---- ผู้โดยสารใช้งานอยู่ ----
+  const P = 'ผู้โดยสารใช้งานอยู่', Y = 'มีเจ้าหน้าที่ ตม. ประจำจุด';
+  const immSplit = vm.runInContext('immSplit', context), immJoin = vm.runInContext('immJoin', context);
+  for (const [imm, pax, text] of [['', true, 'x'], ['yes', true, 'x'], ['no', false, 'x'], ['yes', true, ''], ['', false, 'ข้อความ\nสองบรรทัด']]) {
+    const s = immSplit(immJoin(imm, text, pax));
+    assert.deepEqual([s.imm, s.pax, s.text], [imm, pax, text], JSON.stringify([imm, pax, text]));
+  }
+  assert.equal(immJoin('yes', 'x', true), Y + '\n' + P + '\nx');
+  assert.equal(immSplit(P).pax, true);
+  assert.equal(immSplit(P).text, '');
+  assert.equal(immSplit('หมายเหตุปกติ\n' + P).pax, false);   // marker กลางข้อความไม่นับ
+  assert.equal(immSplit('หมายเหตุปกติ\n' + P).text, 'หมายเหตุปกติ\n' + P);
+  // นับ pax เฉพาะเครื่องที่ยังมี ⏳ ค้าง
+  const paxKiosks = vm.runInContext('paxKiosks', context);
+  const waitK = { kiosk_id:'IMM007', system_ready:true, rustdesk_ready:false, network_ready:true, recheck_items:['rustdesk'], remark:P };
+  const doneK = { kiosk_id:'IMM008', system_ready:true, rustdesk_ready:true, network_ready:true, recheck_items:[], remark:P };
+  assert.deepEqual(Array.from(paxKiosks([waitK, doneK]), k => k.kiosk_id), ['IMM007']);
+  const wbt = vm.runInContext('waitBreakdownText', context);
+  assert.equal(wbt([{l:'RustDesk', wait:1}], 1), 'RustDesk 1\n🧍 ' + P + ' 1 เครื่อง');
+  assert.equal(wbt([{l:'RustDesk', wait:1}], 0), 'RustDesk 1');
+  // รายงาน DOCX: เหตุผลในสถานะ + แถวสรุปที่หัวรายงาน + เครื่องอื่นไม่โดนป้าย
+  const kiosks2 = kiosks.map(k => k.kiosk_id === 'IMM007' ? { ...k, rustdesk_ready:false, recheck_items:['rustdesk'], remark:P + '\nผู้โดยสารกำลังทำรายการ' } : k);
+  return vm.runInContext('buildSingleReportDocxBlob', context)({kiosks: kiosks2, total:20, date:'2026-09-29', shift:'IMP/D 10:00', officer:'Test', webPc:true, webMobile:true});
+}).then(xml => {
+  assert.ok(xml.includes('เครื่องที่ผู้โดยสารใช้งานอยู่'), 'summary row');
+  assert.ok(xml.includes('1 เครื่อง (IMM007)'));
+  assert.ok(xml.includes('ยังไม่ได้ตรวจ RustDesk — ผู้โดยสารใช้งานอยู่'), 'status text');
+  assert.equal(xml.split('— ผู้โดยสารใช้งานอยู่').length - 1, 1, 'label only on IMM007');
+  assert.ok(xml.includes('ผู้โดยสารกำลังทำรายการ'), 'inspector text kept in Remark');
+  // ---- ปุ่มในฟอร์ม: กดได้เฉพาะเครื่องที่ยังมี ⏳ และล้างเองเมื่อตรวจครบ ----
+  const el = (state) => ({ dataset:{ state }, classList:{ toggle(){}, remove(){}, add(){} }, textContent:'' });
+  const id = 'IMM007', els = {};
+  ['system','rustdesk','network'].forEach(t => els['.subchk[data-kiosk="' + id + '"][data-type="' + t + '"]'] = el('ok'));
+  els['.subchk[data-kiosk="' + id + '"][data-type="rustdesk"]'].dataset.state = 'wait';
+  els['.btn-all[data-kiosk="' + id + '"]'] = el(''); els['tr[data-row="' + id + '"]'] = el(''); els['.btn-pax[data-kiosk="' + id + '"]'] = el('');
+  const body = { id:'x', querySelector: s => els[s] || null };
+  const paxBtn = els['.btn-pax[data-kiosk="' + id + '"]']; paxBtn.dataset.kiosk = id; paxBtn.closest = () => body;
+  context.document.getElementById = () => el('');
+  const togglePax = vm.runInContext('togglePax', context), syncRowBtn = vm.runInContext('syncRowBtn', context);
+  togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, 'on');
+  togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, '');
+  togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, 'on');
+  els['.subchk[data-kiosk="' + id + '"][data-type="rustdesk"]'].dataset.state = 'ok';  // ตรวจครบแล้ว
+  syncRowBtn(body, id); assert.equal(paxBtn.dataset.state, '', 'auto-clear when fully checked');
+  togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, '', 'cannot turn on when nothing is pending');
+  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, live check time, end-time fallback and passenger-in-use OK');
 }).catch(e => { console.error(e); process.exitCode = 1; });

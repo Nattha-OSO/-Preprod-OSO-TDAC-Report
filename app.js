@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='32';
+const APP_VERSION='33';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -19,6 +19,8 @@ const SHIFTS=['IMP/D 10:00','IMP/N 22:00'];
 // เจ้าหน้าที่ ตม. ประจำจุดของเครื่องนั้น ๆ: '' ยังไม่ระบุ · 'yes' มี · 'no' ไม่มี
 const IMM_LABEL={'':'👮 ตม. ประจำจุด?','yes':'👮 มี ตม. ประจำจุด','no':'🚫 ไม่มี ตม. ประจำจุด','mixed':'👮 ข้อมูลเดิมต่างกัน — เลือกใหม่ทั้งโซน'};
 const IMM_REMARK={'yes':'มีเจ้าหน้าที่ ตม. ประจำจุด','no':'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด'};
+// เครื่องที่ยังมีหัวข้อ ⏳ เพราะมีผู้โดยสารใช้งานอยู่ — เก็บเป็นบรรทัดในหมายเหตุ (ไม่ต้องเพิ่มคอลัมน์ฐานข้อมูล)
+const PAX_REMARK='ผู้โดยสารใช้งานอยู่';
 const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
@@ -169,6 +171,7 @@ function kioskRowsHtml(){
     '<td><div class="checks">'+
       SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังไม่ได้ตรวจ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
+      '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="กดเมื่อเครื่องนี้มีผู้โดยสารใช้งานอยู่ จึงยังตรวจบางหัวข้อไม่ได้ (ไม่นับเป็นเครื่องเสีย)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
       '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
@@ -343,14 +346,22 @@ async function snapPhoto(){
    จึงไปอยู่ในรายงาน/ฐานข้อมูลเดิมได้ทันที ไม่ต้องเพิ่มคอลัมน์ใหม่
    หมายเหตุที่เก็บ = "มีเจ้าหน้าที่ ตม. ประจำจุด\n<ข้อความที่ผู้ตรวจพิมพ์>" */
 function immSplit(remark){
-  const s=String(remark||''),nl=s.indexOf('\n'),head=(nl<0?s:s.slice(0,nl)).trim();
-  for(const k in IMM_REMARK)if(IMM_REMARK[k]===head)return {imm:k,text:nl<0?'':s.slice(nl+1)};
-  return {imm:'',text:s};
+  // บรรทัดนำหน้า (สูงสุด 2 บรรทัด): สถานะ ตม. ประจำจุด และ/หรือ "ผู้โดยสารใช้งานอยู่" — ที่เหลือคือข้อความของผู้ตรวจ
+  const lines=String(remark||'').split('\n');let imm='',pax=false,i=0;
+  for(;i<2&&i<lines.length;i++){
+    const h=lines[i].trim(),k=Object.keys(IMM_REMARK).find(x=>IMM_REMARK[x]===h);
+    if(k&&!imm)imm=k;else if(h===PAX_REMARK&&!pax)pax=true;else break;
+  }
+  return {imm,pax,text:lines.slice(i).join('\n')};
 }
-function immJoin(imm,text){
-  const t=String(text||'').trim();
-  return IMM_REMARK[imm]?(IMM_REMARK[imm]+(t?'\n'+t:'')):t;
+function immJoin(imm,text,pax){
+  const t=String(text||'').trim(),head=[];
+  if(IMM_REMARK[imm])head.push(IMM_REMARK[imm]);
+  if(pax)head.push(PAX_REMARK);
+  return head.concat(t?[t]:[]).join('\n');
 }
+// เครื่องที่ผู้โดยสารใช้งานอยู่จริง = มีบรรทัดนี้ และยังมีหัวข้อ ⏳ ค้าง (ตรวจครบแล้วไม่นับ)
+function paxKiosks(arr){return (arr||[]).filter(k=>immSplit(k.remark).pax&&kioskWaitItems(k).length);}
 function zoneImmSummary(kiosks,zone){
   const byId=new Map((kiosks||[]).map(k=>[k.kiosk_id,immSplit(k.remark).imm]));
   const states=zone.ids.map(id=>byId.get(id)||'');
@@ -544,12 +555,23 @@ function cycleSub(btn){
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
+function togglePax(btn){
+  const body=btn.closest('tbody'),id=btn.dataset.kiosk;
+  const hasWait=subChips(body,id).some(b=>b&&b.dataset.state==='wait');
+  if(btn.dataset.state!=='on'&&!hasWait)return toast('เครื่องนี้ตรวจครบทุกหัวข้อแล้ว — ปุ่มนี้ใช้กับเครื่องที่ยังมีหัวข้อ ⏳ ค้างอยู่',true);
+  btn.dataset.state=btn.dataset.state==='on'?'':'on';
+  syncRowBtn(body,id);
+  if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
+}
+function setPax(body,id,on){const b=body.querySelector('.btn-pax[data-kiosk="'+id+'"]');if(b)b.dataset.state=on?'on':'';}
 function syncRowBtn(body,id){
   const chips=subChips(body,id),btn=body.querySelector('.btn-all[data-kiosk="'+id+'"]');
   const allOk=chips.every(b=>b&&b.dataset.state==='ok'),anyWait=chips.some(b=>b&&b.dataset.state==='wait'),anyNo=chips.some(b=>b&&b.dataset.state==='no');
+  // ตรวจครบทุกหัวข้อแล้ว → ล้างสถานะ "ผู้โดยสารใช้งานอยู่" อัตโนมัติ
+  const pb=body.querySelector('.btn-pax[data-kiosk="'+id+'"]');if(pb&&!anyWait)pb.dataset.state='';
   if(btn){btn.classList.toggle('all-checked',allOk);btn.textContent=allOk?'✔ All Ready':'Check All';}
   const tr=body.querySelector('tr[data-row="'+id+'"]');
-  if(tr){tr.classList.toggle('ready',allOk);tr.classList.toggle('wait',!allOk&&anyWait&&!anyNo);}
+  if(tr){tr.classList.toggle('ready',allOk);tr.classList.toggle('wait',!allOk&&anyWait&&!anyNo);tr.classList.toggle('pax',!!pb&&pb.dataset.state==='on');}
 }
 // กด Check All = ✓ ทั้งแถว · กดซ้ำ = กลับไป ⏳ ทั้งแถว (ยังไม่ได้ตรวจ)
 function kioskCheckAll(btn){
@@ -567,11 +589,12 @@ function readKiosks(bodyId){
     const rem=(body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]')||{}).value||'';
     // สถานะเจ้าหน้าที่ ตม. ประจำจุด → เก็บเป็นบรรทัดแรกของหมายเหตุเครื่องนั้น
     const imm=(body.querySelector('.imm-val[data-kiosk="'+id+'"]')||{}).value||'';
+    const pax=((body.querySelector('.btn-pax[data-kiosk="'+id+'"]')||{}).dataset||{}).state==='on'&&wait.length>0;
     return {kiosk_id:id,
       system_ready:st('system')==='ok',rustdesk_ready:st('rustdesk')==='ok',network_ready:st('network')==='ok',
       occupied:wait.length===SUBSYS.length,   // คงคอลัมน์เดิมไว้: ⏳ ครบทุกหัวข้อ = ยังไม่ได้ตรวจเครื่องนี้เลย
       recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
-      remark:immJoin(imm,rem)||null,remark_photos:(photoState[id]||[]).slice()};
+      remark:immJoin(imm,rem,pax)||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
@@ -580,7 +603,7 @@ function setKiosks(bodyId,arr){
     SUBSYS.forEach(s=>{const b=body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+s.t+'"]');if(b)b.dataset.state=subStateOf(k,s.t);});
     // แยก "มี/ไม่มี ตม. ประจำจุด" ออกจากบรรทัดแรกของหมายเหตุ กลับไปเป็นปุ่ม + ข้อความ
     const sp=immSplit(k.remark);
-    setImm(body,id,sp.imm);
+    setImm(body,id,sp.imm);setPax(body,id,sp.pax);
     const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=sp.text||'';
     setRecheck(body,id,k.recheck_at||'');
     photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
@@ -639,16 +662,17 @@ function readinessStats(arr,total){
   const usable=full+wait,checked=t-occ;
   const itemsTotal=t*SUBSYS.length,itemsChecked=Math.max(0,itemsTotal-itemsWait);
   return {full,wait,usable,ready:usable,notReady:fail,occupied:occ,pending:occ,
-    needRecheck:occ+wait,checked,per,
+    needRecheck:occ+wait,checked,per,pax:paxKiosks(arr).length,
     itemsTotal,itemsChecked,itemsOk,itemsWait,itemsNo,
     pct:t?Math.round(usable/t*100):0,
     coveragePct:itemsTotal?Math.round(itemsChecked/itemsTotal*100):null,
     checkedPct:itemsChecked>0?Math.round(itemsOk/itemsChecked*100):null};
 }
 // การ์ด "ยังไม่ได้ตรวจ" — แจกแจงจำนวนแยกรายหัวข้อให้อ่านง่ายทันที แทนที่จะรวมเป็นตัวเลขเดียว
-function waitBreakdownText(per){
+function waitBreakdownText(per,pax){
   const items=(per||[]).filter(p=>p.wait);
-  return items.length?items.map(p=>p.l+' '+p.wait).join(' · '):'ตรวจครบทุกรายการ';
+  const base=items.length?items.map(p=>p.l+' '+p.wait).join(' · '):'ตรวจครบทุกรายการ';
+  return pax?base+'\n🧍 ผู้โดยสารใช้งานอยู่ '+pax+' เครื่อง':base;
 }
 function updatePubSummary(){
   const ks=readKiosks('pubKioskBody'),s=readinessStats(ks,KIOSK_COUNT);
@@ -662,7 +686,7 @@ function updatePubSummary(){
     setSub('pubChipSub'+key,p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):''));
   });
   setChip('pubChipRecheck',s.itemsWait,'รายการที่ยังไม่ได้ตรวจ '+s.itemsWait+' รายการ (ใน '+s.needRecheck+' เครื่อง)');
-  setSub('pubChipRecheckSub',waitBreakdownText(s.per));
+  setSub('pubChipRecheckSub',waitBreakdownText(s.per,s.pax));
   setChip('pubChipPctCoverage',(s.coveragePct==null?'—':s.coveragePct+'%'),s.itemsChecked+' / '+s.itemsTotal+' รายการ');
   setSub('pubChipCoverageSub',s.itemsChecked+'/'+s.itemsTotal+' รายการ');
   setChip('pubChipReady',s.usable,'พร้อมใช้งาน '+s.usable+' · Not Ready '+s.notReady+' (จาก '+KIOSK_COUNT+' เครื่อง)');
@@ -868,7 +892,7 @@ function buildReport(r,kmap){
     inspectStart:r.inspect_start||'',inspectEnd:r.inspect_end||'',
     webPc:!!r.web_pc_ready,webPcRemark:r.web_pc_remark||'',webMobile:!!r.web_mobile_ready,webMobileRemark:r.web_mobile_remark||'',
     issue:r.issue_log||'',issuePhotos:r.issue_photos||[],webPcPhotos:r.web_pc_photos||[],webMobilePhotos:r.web_mobile_photos||[],
-    kiosks:ks,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,per:st?st.per:null,
+    kiosks:ks,pax:st?st.pax:0,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,per:st?st.per:null,
     itemsWait:st?st.itemsWait:0,itemsChecked:st?st.itemsChecked:null,itemsTotal:st?st.itemsTotal:total*SUBSYS.length,itemsOk:st?st.itemsOk:null,
     submittedBy:r.submitted_by||''};
 }
@@ -902,7 +926,7 @@ function summarize(reports){
   health.forEach(h=>{h.pct=h.checks?Math.round((h.checks-h.notReady)/h.checks*100):null;});
   const problem=health.filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady);
   // หัวข้อที่ยัง ⏳ "ยังไม่ได้ตรวจ" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
-  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังไม่ได้ตรวจ: '+waitLabels(k).join(', '))+(k.remark?(' — '+k.remark):'')})):[];
+  const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังไม่ได้ตรวจ: '+waitLabels(k).join(', '))+(immSplit(k.remark).pax?' · 🧍 ผู้โดยสารใช้งานอยู่':'')+(immSplit(k.remark).text.trim()?(' — '+immSplit(k.remark).text.trim()):'')})):[];
   const shiftCounts={},officerCounts={};
   reports.forEach(r=>{shiftCounts[r.shift]=(shiftCounts[r.shift]||0)+1;officerCounts[r.officer]=(officerCounts[r.officer]||0)+1;});
   const webPcOk=reports.filter(r=>r.webPc).length,webMobileOk=reports.filter(r=>r.webMobile).length;
@@ -1167,7 +1191,7 @@ function openReportDetail(id){
       // % รายหัวข้อ — ตัวหารคือเครื่องที่ตรวจหัวข้อนั้นได้ (ตัด ⏳ ออก)
       ((r.per||[]).map(p=>'<div class="sumchip pct" title="'+esc(p.l)+': ผ่าน '+p.ok+' · ใช้งานไม่ได้ '+p.no+' · ยังไม่ได้ตรวจ '+p.wait+'"><div class="n">'+(p.pct==null?'—':p.pct+'%')+'</div><div class="l">'+esc(p.l)+'</div><div class="s">'+p.ok+'/'+p.checked+' ตรวจได้'+(p.wait?(' · ⏳'+p.wait):'')+'</div></div>').join(''))+
       '<div class="sumchip"><div class="n">'+r.total+'</div><div class="l">Kiosks</div><div class="s">เครื่อง</div></div>'+
-      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังไม่ได้ตรวจ</div><div class="s">'+esc(waitBreakdownText(r.per))+'</div></div>'+
+      '<div class="sumchip"><div class="n" style="color:#b45309">'+(r.itemsWait||0)+'</div><div class="l">ยังไม่ได้ตรวจ</div><div class="s">'+esc(waitBreakdownText(r.per,r.pax))+'</div></div>'+
       '<div class="sumchip pct" title="'+(r.itemsChecked==null?'':r.itemsChecked+' / '+r.itemsTotal+' รายการ')+'"><div class="n">'+(r.coveragePct==null?'—':r.coveragePct+'%')+'</div><div class="l">ความครบถ้วนการตรวจ</div><div class="s">'+(r.itemsChecked==null?'—':r.itemsChecked+'/'+r.itemsTotal+' รายการ')+'</div></div>'+
       '<div class="sumchip ok"><div class="n">'+r.ready+'</div><div class="l">พร้อมใช้งาน</div><div class="s">Not Ready '+r.notReady+' เครื่อง</div></div>'+
       '<div class="sumchip"><div class="n" style="font-size:16px;color:'+(r.webPc?'var(--green)':'var(--rose)')+'">'+(r.webPc?'Ready':'Not Ready')+'</div><div class="l">Website (PC)</div></div>'+
@@ -1445,6 +1469,7 @@ async function buildSingleReportDocxBlob(r){
     ['ผ่านเฉพาะที่ตรวจได้',(checkedPct==null?'—':checkedPct+'%')+'   ('+rst.itemsOk+' / '+rst.itemsChecked+' รายการ)'],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
+  if(rst.pax)kv.push(['เครื่องที่ผู้โดยสารใช้งานอยู่',rst.pax+' เครื่อง ('+paxKiosks(r.kiosks).map(k=>k.kiosk_id).join(', ')+') — ยังตรวจบางหัวข้อไม่ได้ ไม่นับเป็นเครื่องเสีย']);
   kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังไม่ได้ตรวจ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
@@ -1501,9 +1526,10 @@ async function buildSingleReportDocxBlob(r){
     for(const k of zoneKiosks){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>{const s=subStateOf(k,t);return s==='wait'?'⏳':(s==='ok'?yes:no);};
-    const status=cls==='occupied'?'ยังไม่ได้ตรวจ (ทุกรายการ)'
+    const paxNow=immSplit(k.remark).pax&&wl?' — ผู้โดยสารใช้งานอยู่':'';
+    const status=cls==='occupied'?'ยังไม่ได้ตรวจ (ทุกรายการ)'+paxNow
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
-      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+(k.recheck_at?' (ตรวจเมื่อ '+k.recheck_at+' น.)':''))
+      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+paxNow+(k.recheck_at?' (ตรวจเมื่อ '+k.recheck_at+' น.)':''))
       :('Not Ready'+(k.recheck_at?' · ตรวจเมื่อ '+k.recheck_at+' น.':''));
     const sp=immSplit(k.remark);
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
