@@ -73,11 +73,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   // เวลาตรวจต้องเป็นเวลาปัจจุบันทุกครั้งที่กด และล้างเมื่อกลับเป็น ⏳ ครบ
   const RealDate = vm.runInContext('Date', context);
   const at = (h, m) => { context.Date = class extends RealDate { constructor() { super(2026, 8, 30, h, m); } }; };
-  const checkTimeFor = vm.runInContext('checkTimeFor', context);
-  at(10, 5);  assert.equal(checkTimeFor(['ok', 'wait', 'wait']), '10:05');
-  at(10, 47); assert.equal(checkTimeFor(['ok', 'ok', 'wait']), '10:47');
-  at(11, 2);  assert.equal(checkTimeFor(['ok', 'ok', 'no']), '11:02');
-  assert.equal(checkTimeFor(['wait', 'wait', 'wait']), '');
+  at(11, 2);
   const endTimeOrNow = vm.runInContext('endTimeOrNow', context);
   assert.equal(endTimeOrNow('11:30'), '11:30');
   assert.equal(endTimeOrNow(''), '11:02');
@@ -106,6 +102,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.equal(wbt([{l:'RustDesk', wait:1}], 1), 'RustDesk 1\n🧍 ' + P + ' 1 เครื่อง');
   assert.equal(wbt([{l:'RustDesk', wait:1}], 0), 'RustDesk 1');
   // รายงาน DOCX: เหตุผลในสถานะ + แถวสรุปที่หัวรายงาน + เครื่องอื่นไม่โดนป้าย
+  const withTimes = kiosks.map(k => ({ ...k, recheck_at: '10:47' }));   // ข้อมูลรายงานเก่าที่เคยมีเวลารายเครื่อง
   const kiosks2 = kiosks.map(k => k.kiosk_id === 'IMM007' ? { ...k, rustdesk_ready:false, recheck_items:['rustdesk'], remark:P + '\nผู้โดยสารกำลังทำรายการ' } : k);
   return vm.runInContext('buildSingleReportDocxBlob', context)({kiosks: kiosks2, total:20, date:'2026-09-29', shift:'IMP/D 10:00', officer:'Test', webPc:true, webMobile:true});
 }).then(xml => {
@@ -138,6 +135,25 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
     const i = xml.indexOf(zt), ps = xml.lastIndexOf('<w:p>', i);
     assert.ok(xml.slice(ps, i).includes('<w:keepNext/>'), zt + ' heading keeps with table');
   }
+  // ---- ไม่แสดงเวลาตรวจรายเครื่อง ----
+  const withTimes = kiosks.map(k => ({ ...k, recheck_at: '10:47' }));   // ข้อมูลรายงานเก่าที่เคยมีเวลารายเครื่อง
+  const times = vm.runInContext('buildSingleReportDocxBlob', context)({kiosks: withTimes, inspectStart:'10:00', inspectEnd:'11:30', total:20, date:'2026-09-29', shift:'IMP/D 10:00', officer:'Test', webPc:true, webMobile:true});
+  return times.then(x3 => {
+    assert.ok(!x3.includes('ตรวจเมื่อ') && !x3.includes('ตรวจซ้ำ') && !x3.includes('10:47'), 'no per-kiosk time / recheck table in report');
+    assert.ok(x3.includes('1 ชม. 30 นาที'), 'overall duration from start/end still shown');
+    // ปุ่มกด ✓/✘ ต้องไม่ลงเวลาให้เครื่องอีก
+    const el0 = (state) => ({ dataset:{ state }, classList:{ toggle(){}, remove(){}, add(){} }, textContent:'', value:'' });
+    const els0 = {}, ID = 'IMM003';
+    ['system','rustdesk','network'].forEach(tp => els0['.subchk[data-kiosk="' + ID + '"][data-type="' + tp + '"]'] = el0('wait'));
+    els0['.recheck-val[data-kiosk="' + ID + '"]'] = el0(''); els0['.btn-all[data-kiosk="' + ID + '"]'] = el0(''); els0['tr[data-row="' + ID + '"]'] = el0('');
+    const body0 = { id:'x', querySelector: s => els0[s] || null };
+    const sysBtn = els0['.subchk[data-kiosk="' + ID + '"][data-type="system"]']; sysBtn.dataset.kiosk = ID; sysBtn.closest = () => body0;
+    vm.runInContext('cycleSub', context)(sysBtn);
+    assert.equal(sysBtn.dataset.state, 'ok');
+    assert.equal(els0['.recheck-val[data-kiosk="' + ID + '"]'].value, '', 'no time stamped on click');
+    return xml;
+  });
+}).then(xml => {
   // ---- ปุ่มในฟอร์ม: กดได้เฉพาะเครื่องที่ยังมี ⏳ และล้างเองเมื่อตรวจครบ ----
   const el = (state) => ({ dataset:{ state }, classList:{ toggle(){}, remove(){}, add(){} }, textContent:'' });
   const id = 'IMM007', els = {};
@@ -154,5 +170,5 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   els['.subchk[data-kiosk="' + id + '"][data-type="rustdesk"]'].dataset.state = 'ok';  // ตรวจครบแล้ว
   syncRowBtn(body, id); assert.equal(paxBtn.dataset.state, '', 'auto-clear when fully checked');
   togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, '', 'cannot turn on when nothing is pending');
-  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, live check time, end-time fallback and passenger-in-use OK');
+  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, end-time fallback, passenger-in-use, table pagination and no per-kiosk time OK');
 }).catch(e => { console.error(e); process.exitCode = 1; });

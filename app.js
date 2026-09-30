@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='35';
+const APP_VERSION='36';
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
 const ZONES=[
@@ -174,7 +174,6 @@ function kioskRowsHtml(){
       '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="กดเมื่อเครื่องนี้มีผู้โดยสารใช้งานอยู่ จึงยังตรวจบางหัวข้อไม่ได้ (ไม่นับเป็นเครื่องเสีย)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
-      '<span class="recheck-time" data-kiosk="'+id+'" style="display:none"></span>'+
     '</div></td>'+
     '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
@@ -387,15 +386,8 @@ function cycleImm(btn){
 // เวลาเริ่มตรวจ default ตามรอบ (IMP/D=10:00, IMP/N=22:00) · เวลาปัจจุบัน HH:MM จากนาฬิกาเครื่อง
 function shiftStartTime(shift){const s=String(shift||'');return s.indexOf('IMP/D')>=0?'10:00':(s.indexOf('IMP/N')>=0?'22:00':'');}
 function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-// ลง/ล้าง "เวลาที่ตรวจข้อนี้เสร็จ" ของแถว (เดิมเรียก recheck ตอนยังมีปุ่ม "ไม่ว่าง" — เลิกใช้ชื่อนั้นแล้ว) + อัปเดตป้ายแสดงผล
-function setRecheck(body,id,val){
-  const inp=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(inp)inp.value=val||'';
-  const chip=body.querySelector('.recheck-time[data-kiosk="'+id+'"]');
-  if(chip){if(val){chip.textContent='✓ ตรวจเมื่อ '+val;chip.style.display='';}else{chip.textContent='';chip.style.display='none';}}
-}
-// เวลาที่ตรวจเครื่องนี้ล่าสุด: มีหัวข้อที่ตรวจแล้ว (✓/✘) → เวลาปัจจุบัน · ยัง ⏳ ครบทุกหัวข้อ → ว่าง
-function checkTimeFor(states){return (states||[]).some(x=>x!=='wait')?nowHM():'';}
-function refreshCheckTime(body,id){setRecheck(body,id,checkTimeFor(subChips(body,id).map(b=>b?b.dataset.state:'wait')));}
+// เวลาตรวจรายเครื่องเลิกใช้แล้ว (เจ้าหน้าที่มักกรอกครั้งเดียวทั้งรอบ) — เหลือช่อง hidden เพื่อเก็บค่าเดิมของรายงานเก่าไว้ ไม่ให้หายเมื่อกดบันทึกแก้ไข
+function setRecheck(body,id,val){const inp=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');if(inp)inp.value=val||'';}
 // ปุ่ม "ใช้เวลาปัจจุบัน" ของช่อง ตรวจเสร็จเวลา (อยู่เหนือปุ่มส่งรายงาน)
 function setEndNow(){const e=$('pubEnd');if(!e)return;e.value=nowHM();e.classList.remove('invalidf');scheduleDraftSave();}
 // เวลาตรวจเสร็จที่ใช้บันทึก: ค่าที่กรอก ถ้าว่างใช้เวลาปัจจุบัน
@@ -550,7 +542,6 @@ function cycleSub(btn){
   btn.dataset.state=next;
   const body=btn.closest('tbody'),id=btn.dataset.kiosk;
   // ทุกครั้งที่กดสลับ → อัปเดตเวลาตรวจล่าสุดของเครื่องนี้เป็นเวลาปัจจุบัน (เดิมลงครั้งแรกครั้งเดียวแล้วค้าง)
-  refreshCheckTime(body,id);
   syncRowBtn(body,id);
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
@@ -578,7 +569,6 @@ function kioskCheckAll(btn){
   const body=btn.closest('tbody'),id=btn.dataset.kiosk,chips=subChips(body,id);
   const allOk=chips.every(b=>b&&b.dataset.state==='ok');
   chips.forEach(b=>{if(b)b.dataset.state=allOk?'wait':'ok';});
-  refreshCheckTime(body,id);
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 function readKiosks(bodyId){
@@ -694,8 +684,8 @@ function updatePubSummary(){
   const setWeb=(id,ok)=>{const e=$(id);if(e){e.textContent=ok?'Ready':'Not Ready';e.style.color=ok?'var(--green)':'var(--rose)';}};
   setWeb('pubChipWebPc',!!($('pubWebPc')&&$('pubWebPc').checked));setWeb('pubChipWebMobile',!!($('pubWebMobile')&&$('pubWebMobile').checked));
 }
-/* ---------- ไทม์ไลน์เวลาตรวจจริง (รวมการตรวจซ้ำ) ----------
-   "ตรวจครบทุกเครื่องจริง" = เวลาล่าสุดของ (จบรอบแรก inspect_end, ตรวจซ้ำล่าสุด recheck_at)
+/* ---------- ไทม์ไลน์เวลาตรวจจริง ----------
+   เวลาตรวจเสร็จ = inspect_end (เวลาเริ่ม/เสร็จของทั้งรอบ ไม่มีเวลารายเครื่องแล้ว)
    รองรับรอบกลางคืนข้ามเที่ยงคืน: เวลาที่ < เวลาเริ่ม ถือเป็นวันถัดไป (+24 ชม.) */
 function hmToMin(s){const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||'').trim());if(!m)return null;const h=+m[1],mi=+m[2];return(h>23||mi>59)?null:h*60+mi;}
 function minToHm(min){min=((Math.round(min)%1440)+1440)%1440;return pad2(Math.floor(min/60))+':'+pad2(min%60);}
@@ -703,7 +693,7 @@ function fmtDur(min){if(min==null||min<0)return '—';const h=Math.floor(min/60)
 function inspectionTimeline(r){
   const startM=hmToMin(r.inspectStart);
   const rel=t=>{const m=hmToMin(t);if(m==null)return null;if(startM==null)return m;return m<startM?m+1440:m;};
-  const rechecks=(r.kiosks||[]).filter(k=>k.recheck_at).map(k=>({id:k.kiosk_id,at:k.recheck_at,rel:rel(k.recheck_at)})).filter(x=>x.rel!=null).sort((a,b)=>a.rel-b.rel);
+  const rechecks=[];   // เลิกใช้เวลารายเครื่อง (recheck_at) — ระยะเวลาคิดจากเวลาเริ่ม/ตรวจเสร็จของทั้งรอบเท่านั้น
   const endRel=rel(r.inspectEnd),lastRc=rechecks.length?rechecks[rechecks.length-1].rel:null;
   const cand=[endRel,lastRc].filter(v=>v!=null),completeRel=cand.length?Math.max.apply(null,cand):null;
   const totalMin=(startM!=null&&completeRel!=null)?completeRel-startM:null;
@@ -722,15 +712,12 @@ function timelineHtml(r){
   if(!t.start&&!t.firstPassEnd&&!t.rechecks.length)return '';
   const line=(time,color,text)=>'<div style="display:flex;gap:9px;align-items:baseline"><span style="width:50px;flex:0 0 auto;font-weight:800;color:'+color+'">'+esc(time||'—')+'</span><span>'+text+'</span></div>';
   let rows=line(t.start,'var(--navy)','เริ่มตรวจ');
-  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจรอบแรกเสร็จ'+(t.itemsWaitNow?' · ยังไม่ได้ตรวจ '+t.itemsWaitNow+' รายการ':''));
-  t.rechecks.forEach(x=>{rows+=line(x.at,'#b45309','↩ ตรวจซ้ำ '+esc(x.id)+(x.waitMin!=null?' <span class="mini">(รอ '+x.waitMin+' นาที)</span>':''));});
+  if(t.firstPassEnd)rows+=line(t.firstPassEnd,'var(--navy)','ตรวจเสร็จ'+(t.itemsWaitNow?' · ยังไม่ได้ตรวจ '+t.itemsWaitNow+' รายการ':''));
   let foot='';
   if(t.pendingNow>0)foot+='<div style="margin-top:5px;color:#b45309;font-weight:700">⏳ ยังมี '+t.itemsWaitNow+' รายการที่ยังไม่ได้ตรวจ (ใน '+t.pendingNow+' เครื่อง) — การตรวจยังไม่ครบ</div>';
   else if(t.completeAt)foot+='<div style="margin-top:5px;color:var(--green);font-weight:800">✅ ตรวจครบทุกรายการ: '+t.completeAt+' น.'+(t.crossedMidnight?' (วันถัดไป)':'')+'</div>';
-  if(t.pendingNow===0&&t.totalMin!=null)foot+='<div style="font-weight:800;color:var(--navy)">⏱ ระยะเวลารวมจนตรวจครบ: '+fmtDur(t.totalMin)+'</div>';
-  // (ช่วงรอ/ตรวจซ้ำ = เวลาที่เสียไปกับการกลับไปตรวจหัวข้อที่ยัง ⏳ ในรอบแรก)
-  if(t.firstPassMin!=null)foot+='<div class="mini">• รอบแรก (ลงมือตรวจ): '+fmtDur(t.firstPassMin)+(t.pendingNow===0&&t.waitMin?' · ช่วงรอ/ตรวจซ้ำ: '+fmtDur(t.waitMin):'')+'</div>';
-  return '<div class="notice" style="flex-direction:column;align-items:stretch;gap:5px;background:#f6f9ff;border-color:#c7e0fb;margin:6px 0 14px"><b style="color:var(--navy)">⏱ ไทม์ไลน์การตรวจสอบ (เวลาจริงรวมการตรวจซ้ำ)</b>'+rows+foot+'</div>';
+  if(t.totalMin!=null)foot+='<div style="font-weight:800;color:var(--navy)">⏱ ระยะเวลาในการตรวจ: '+fmtDur(t.totalMin)+'</div>';
+  return '<div class="notice" style="flex-direction:column;align-items:stretch;gap:5px;background:#f6f9ff;border-color:#c7e0fb;margin:6px 0 14px"><b style="color:var(--navy)">⏱ ไทม์ไลน์การตรวจสอบ</b>'+rows+foot+'</div>';
 }
 let officerEmailMap={};
 async function loadPublicOfficers(){
@@ -1491,11 +1478,6 @@ async function buildSingleReportDocxBlob(r){
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
-  if(TL.rechecks.length){
-    body+=dHeading('รายละเอียดเครื่องที่กลับไปตรวจซ้ำ',{keepNext:true});
-    const trows=TL.rechecks.map(x=>[x.id,x.at+' น.',x.waitMin!=null?('รอ '+x.waitMin+' นาที'):'—']);
-    body+=dTable([['Kiosk','เวลาตรวจซ้ำ','ระยะเวลารอ (นับจากจบรอบแรก)']].concat(trows),[2000,3000,5000],null,{center:'all',keepTogether:true});
-  }
   /* ---- ตัวช่วยฝังรูปลงเอกสาร (ใช้ร่วมกันทั้งเซลล์หมายเหตุรายเครื่อง และภาพประกอบท้ายรายงาน) ----
      ทุกรูปผ่านทางนี้ทางเดียว จึงนับเลขไฟล์/relationship ต่อเนื่องกันได้ ไม่ชนกัน
      ถ้ารูปใดฝังไม่ได้ ก็ข้ามไปเฉย ๆ (นับไว้เตือนท้ายสุด) เอกสารยังออกได้ครบ */
@@ -1531,8 +1513,8 @@ async function buildSingleReportDocxBlob(r){
     const paxNow=immSplit(k.remark).pax&&wl?' — ผู้โดยสารใช้งานอยู่':'';
     const status=cls==='occupied'?'ยังไม่ได้ตรวจ (ทุกรายการ)'+paxNow
       :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
-      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+paxNow+(k.recheck_at?' (ตรวจเมื่อ '+k.recheck_at+' น.)':''))
-      :('Not Ready'+(k.recheck_at?' · ตรวจเมื่อ '+k.recheck_at+' น.':''));
+      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+paxNow)
+      :'Not Ready';
     const sp=immSplit(k.remark);
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
     let cell='';
