@@ -4,6 +4,14 @@
 -- รันใน: Supabase SQL Editor (project preprod: hxjdaueduibkasokawqx) — รันครั้งเดียว, รันซ้ำได้
 -- ============================================================
 
+-- คอลัมน์ที่ฟังก์ชัน submit_tdac_report ด้านล่างใช้ — ฐานข้อมูลที่สร้างจาก schema รุ่นแรกไม่มีคอลัมน์เหล่านี้
+-- (ถ้าขาด การส่งรายงานจะล้มด้วย: column "inspect_start" of relation "reports" does not exist)
+alter table public.reports       add column if not exists inspect_start  text;
+alter table public.reports       add column if not exists inspect_end    text;
+alter table public.reports       add column if not exists kiosks_pending smallint not null default 0;
+alter table public.report_kiosks add column if not exists occupied       boolean  not null default false;
+alter table public.report_kiosks add column if not exists recheck_at     text;
+
 -- (รวมส่วนของฟีเจอร์รูปภาพไว้ด้วย เผื่อยังไม่ได้รัน migration-photos.sql — รันไฟล์เดียวจบ)
 insert into storage.buckets (id, name, public) values ('report-photos','report-photos', true)
   on conflict (id) do update set public = true;
