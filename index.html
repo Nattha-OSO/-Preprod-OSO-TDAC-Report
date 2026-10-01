@@ -412,7 +412,7 @@
         <div class="card">
           <div class="card-h">🖥️ Kiosk Checklist — IMM001–IMM020</div>
           <div class="card-b" style="padding:0">
-            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · <strong>กดปุ่มรายการย่อยเพื่อสลับสถานะ:</strong> <strong style="color:#b45309">⏳ ยังไม่ได้ตรวจ</strong> (ค่าตั้งต้น) → <strong style="color:#15803d">✓ พร้อมใช้งาน</strong> → <strong style="color:#b91c1c">✘ ใช้งานไม่ได้</strong> · เช่น ผู้โดยสารกำลังใช้เครื่องอยู่ ให้กดปุ่ม <strong>🧍 ผู้โดยสารใช้งานอยู่</strong> ระบบจะติ๊ก System และ Network เป็น ✓ ให้ แล้วคง RustDesk เป็น ⏳ · รายการ ⏳ ถูก<strong>ตัดออกจากตัวหาร</strong>ของ % หัวข้อนั้น · เครื่องที่มีรายการ <strong style="color:#b91c1c">✘</strong> ต้องระบุเหตุผลในช่อง Remark (รายการ ⏳ ไม่ต้องระบุ)</span></div>
+            <div class="notice" style="margin:14px 14px 0">ℹ️ <span><strong>หมายเหตุ:</strong> ก่อนเข้าตรวจสอบเครื่อง Kiosk เจ้าหน้าที่ Onsite Support ต้องขออนุญาตเจ้าหน้าที่ ตม. ที่ประจำอยู่บริเวณนั้นทุกครั้ง · <strong>กดปุ่มรายการย่อยเพื่อสลับสถานะ:</strong> <strong style="color:#b45309">⏳ ยังไม่ได้ตรวจ</strong> (ค่าตั้งต้น) → <strong style="color:#15803d">✓ พร้อมใช้งาน</strong> → <strong style="color:#b91c1c">✘ ใช้งานไม่ได้</strong> · เช่น ผู้โดยสารกำลังใช้เครื่องอยู่ ให้กดปุ่ม <strong>🧍 ผู้โดยสารใช้งานอยู่</strong> ระบบจะติ๊ก System และ Network เป็น ✓ ให้ แล้วคง RustDesk เป็น ⏳ · รายการ ⏳ ถูก<strong>ตัดออกจากตัวหาร</strong>ของ % หัวข้อนั้น · เครื่องที่มีรายการ <strong style="color:#b91c1c">✘</strong> ต้องระบุเหตุผลในช่อง Remark (รายการ ⏳ ไม่ต้องระบุ) · <strong>RustDesk ✘ ไม่ทำให้เครื่องเป็น Not Ready</strong> (นับ % RustDesk แยก) · Not Ready = System หรือ Network ✘</span></div>
             <div style="overflow:auto;padding:14px">
               <table class="ktable">
                 <thead><tr><th style="width:96px">Kiosk ID</th><th>System / RustDesk / Network</th><th style="min-width:170px">Remark</th></tr></thead>
@@ -660,9 +660,9 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=41"></script>
+<script src="config.js?v=42"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=41"></script>
+<script src="app.js?v=42"></script>
 </body>
 </html>

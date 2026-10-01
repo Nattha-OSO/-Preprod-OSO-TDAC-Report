@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='41';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='42';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -637,9 +637,14 @@ function subStatesOf(k){return SUBSYS.map(s=>subStateOf(k,s.t));}
 function kioskWaitItems(k){return SUBSYS.filter(s=>subStateOf(k,s.t)==='wait').map(s=>s.t);}
 function waitLabels(k){const set=new Set(kioskWaitItems(k));return SUBSYS.filter(s=>set.has(s.t)).map(s=>s.l);}
 // จัดประเภทเครื่อง: 'occupied'(ยังไม่ได้ตรวจเลยสักรายการ) | 'notready'(มีรายการเสีย) | 'usable_wait'(ใช้งานได้ รอตรวจบางรายการ) | 'ready'(ตรวจครบ)
+/* นิยาม "เครื่องไม่พร้อมใช้งาน (Not Ready)" = System หรือ Network เป็น ✘ เท่านั้น
+   RustDesk ✘ (remote เข้าไม่ได้) ไม่ถือว่าเครื่องใช้งานไม่ได้ — ผู้โดยสารยังใช้เครื่องได้ → นับ % ของ RustDesk แยกต่างหาก */
+const CORE_SUBS=['system','network'];
+function isNotReadyStates(st){return SUBSYS.some((s,i)=>CORE_SUBS.indexOf(s.t)>=0&&st[i]==='no');}
+function rustdeskDown(k){return subStateOf(k,'rustdesk')==='no';}
 function kioskClass(k){
   const st=subStatesOf(k);
-  if(st.some(s=>s==='no'))return 'notready';
+  if(isNotReadyStates(st))return 'notready';
   if(st.every(s=>s==='wait'))return 'occupied';
   if(st.some(s=>s==='wait'))return 'usable_wait';
   return 'ready';
@@ -656,9 +661,10 @@ function kioskPendingCount(arr){return (arr||[]).filter(k=>kioskClass(k)==='occu
    checkedPct   ผ่านเฉพาะที่ตรวจได้   = หัวข้อที่ผ่าน / หัวข้อที่ตรวจได้
    ทุกตัวตัด ⏳ ออกจากตัวหาร — เครื่องที่ยังตรวจหัวข้อนั้นไม่ได้ ไม่ถ่วง % ของหัวข้อนั้น */
 function readinessStats(arr,total){
-  const t=total||KIOSK_COUNT;let full=0,wait=0,fail=0,occ=0,itemsOk=0,itemsWait=0,itemsNo=0;
+  const t=total||KIOSK_COUNT;let full=0,wait=0,fail=0,occ=0,rdDown=0,itemsOk=0,itemsWait=0,itemsNo=0;
   const per=SUBSYS.map(s=>({t:s.t,l:s.l,ok:0,no:0,wait:0}));
   (arr||[]).forEach(k=>{
+    if(rustdeskDown(k))rdDown++;
     const c=kioskClass(k);if(c==='ready')full++;else if(c==='usable_wait')wait++;else if(c==='notready')fail++;else occ++;
     subStatesOf(k).forEach((s,i)=>{
       if(s==='ok'){itemsOk++;per[i].ok++;}else if(s==='wait'){itemsWait++;per[i].wait++;}else{itemsNo++;per[i].no++;}
@@ -671,7 +677,7 @@ function readinessStats(arr,total){
   const usable=full+wait,checked=t-occ;
   const itemsTotal=t*SUBSYS.length,itemsChecked=Math.max(0,itemsTotal-itemsWait);
   return {full,wait,usable,ready:usable,notReady:fail,occupied:occ,pending:occ,
-    needRecheck:occ+wait,checked,per,pax:paxKiosks(arr).length,
+    needRecheck:occ+wait,checked,per,pax:paxKiosks(arr).length,rdDown,
     itemsTotal,itemsChecked,itemsOk,itemsWait,itemsNo,
     pct:t?Math.round(usable/t*100):0,
     coveragePct:itemsTotal?Math.round(itemsChecked/itemsTotal*100):null,
@@ -699,7 +705,7 @@ function updatePubSummary(){
   setChip('pubChipPctCoverage',(s.coveragePct==null?'—':s.coveragePct+'%'),s.itemsChecked+' / '+s.itemsTotal+' รายการ');
   setSub('pubChipCoverageSub',s.itemsChecked+'/'+s.itemsTotal+' รายการ');
   setChip('pubChipReady',s.usable,'พร้อมใช้งาน '+s.usable+' · Not Ready '+s.notReady+' (จาก '+KIOSK_COUNT+' เครื่อง)');
-  setSub('pubChipReadySub','Not Ready '+s.notReady+' เครื่อง');
+  setSub('pubChipReadySub','Not Ready '+s.notReady+' เครื่อง'+(s.rdDown?(' · RustDesk ✘ '+s.rdDown):''));
   const setWeb=(id,ok)=>{const e=$(id);if(e){e.textContent=ok?'Ready':'Not Ready';e.style.color=ok?'var(--green)':'var(--rose)';}};
   setWeb('pubChipWebPc',!!($('pubWebPc')&&$('pubWebPc').checked));setWeb('pubChipWebMobile',!!($('pubWebMobile')&&$('pubWebMobile').checked));
 }
@@ -776,7 +782,7 @@ async function submitPublic(){
   // บังคับ Remark เฉพาะเครื่องที่มีหัวข้อ ✘ "ใช้งานไม่ได้" — หัวข้อ ⏳ "ยังไม่ได้ตรวจ" ไม่ต้องใส่
   kiosks.forEach(k=>{
     // นับเฉพาะข้อความที่ผู้ตรวจพิมพ์เอง — บรรทัด "ตม. ประจำจุด" ไม่ถือเป็นเหตุผลของ Not Ready
-    if(kioskClass(k)==='notready'&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
+    if(subStatesOf(k).some(x=>x==='no')&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
   if(!$('pubWebPc').checked&&!($('pubWebPcRemark').value||'').trim())markBad($('pubWebPcRemark'));
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
@@ -908,7 +914,7 @@ function buildReport(r,kmap){
     inspectStart:r.inspect_start||'',inspectEnd:r.inspect_end||'',
     webPc:!!r.web_pc_ready,webPcRemark:r.web_pc_remark||'',webMobile:!!r.web_mobile_ready,webMobileRemark:r.web_mobile_remark||'',
     issue:r.issue_log||'',issuePhotos:r.issue_photos||[],webPcPhotos:r.web_pc_photos||[],webMobilePhotos:r.web_mobile_photos||[],
-    kiosks:ks,pax:st?st.pax:0,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,per:st?st.per:null,
+    kiosks:ks,pax:st?st.pax:0,rdDown:st?st.rdDown:0,total,ready,pending,notReady:st?st.notReady:Math.max(0,total-ready-pending),pct,checkedPct,coveragePct,per:st?st.per:null,
     itemsWait:st?st.itemsWait:0,itemsChecked:st?st.itemsChecked:null,itemsTotal:st?st.itemsTotal:total*SUBSYS.length,itemsOk:st?st.itemsOk:null,
     submittedBy:r.submitted_by||''};
 }
@@ -936,11 +942,12 @@ function summarize(reports){
     const st=subStatesOf(k);
     if(st.every(x=>x==='wait'))return;   // ยังไม่ได้ตรวจเลยสักรายการ ไม่นับเป็นการตรวจ/Not Ready
     h.checks++;
-    if(st.some(x=>x==='no'))h.notReady++;
+    if(isNotReadyStates(st))h.notReady++;
     // รายการ ⏳ = ยังไม่ได้ตรวจ (เช่น RustDesk ตอนผู้โดยสารใช้งาน) ไม่นับเป็น "ระบบล้ม"
     SUBSYS.forEach((s,i)=>{if(st[i]==='no')h.fail[s.t]++;else if(st[i]==='wait'){h.wait[s.t]++;h.waitTotal++;}});}));
   health.forEach(h=>{h.pct=h.checks?Math.round((h.checks-h.notReady)/h.checks*100):null;});
-  const problem=health.filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady);
+  // เครื่องที่ต้องติดตาม = เคย Not Ready (System/Network ✘) หรือ RustDesk ใช้งานไม่ได้ (นับแยก ไม่ปน Not Ready)
+  const problem=health.filter(h=>h.notReady>0||h.fail.rustdesk>0).sort((a,b)=>(b.notReady-a.notReady)||(b.fail.rustdesk-a.fail.rustdesk));
   // หัวข้อที่ยัง ⏳ "ยังไม่ได้ตรวจ" ในรายงานล่าสุด — ตัวเตือนให้กลับไปตรวจ
   const recheck=latest?(latest.kiosks||[]).filter(k=>kioskWaitItems(k).length).map(k=>({reportId:latest.id,date:latest.date,shift:latest.shift,officer:latest.officer,kioskId:k.kiosk_id,remark:('⏳ ยังไม่ได้ตรวจ: '+waitLabels(k).join(', '))+(immSplit(k.remark).pax?' · 🧍 ผู้โดยสารใช้งานอยู่':'')+(immSplit(k.remark).text.trim()?(' — '+immSplit(k.remark).text.trim()):'')})):[];
   const shiftCounts={},officerCounts={};
@@ -997,7 +1004,7 @@ function renderDashboard(){
       stat('จำนวนรายงาน',s.total||0,'รายการตรวจสอบ','var(--cyan)')+
       stat('Readiness เฉลี่ย',(s.avgReadiness||0)+'%','เฉลี่ยทุกรอบ','var(--mint)')+
       stat('รอบล่าสุด',L?(L.pct+'%'):'-',L?(dispDate(L.date)+' · '+esc(L.shift)):'ยังไม่มีรายงาน','var(--amber)')+
-      stat('เครื่องที่ต้องติดตาม',(s.problem||[]).length,'เคยพบ Not Ready','var(--rose)')+
+      stat('เครื่องที่ต้องติดตาม',(s.problem||[]).length,'เคยพบ Not Ready / RustDesk ✘','var(--rose)')+
     '</div>'+
     '<div class="exec"><div class="panel"><div class="panel-head"><div><div class="panel-title">สถานะรอบล่าสุด</div><div class="mini">'+(L?(dispDate(L.date)+' · '+esc(L.shift)+' · '+esc(L.officer)):'ยังไม่มีรายงาน')+'</div></div>'+(L?'<button class="btn" onclick="openReportDetail('+L.id+')">ดูรายละเอียด</button>':'')+'</div>'+
       '<div class="exec-grid"><div class="exec-item"><b>Kiosk พร้อมใช้งาน</b><span class="tag '+(L?pctTone(L.pct):'neutral')+'">'+(L?(L.ready+' / '+L.total):'-')+'</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+(L?L.pct:0)+'%"></div></div><div class="mini" style="margin-top:6px">Readiness '+(L?L.pct:0)+'%'+(L&&L.itemsWait?' · เฉพาะที่ตรวจได้ '+(L.checkedPct==null?'—':L.checkedPct+'%')+' · ⏳ ยังไม่ได้ตรวจ '+L.itemsWait+' รายการ':'')+'</div>'+
@@ -1487,6 +1494,7 @@ async function buildSingleReportDocxBlob(r){
     ['ผ่านเฉพาะที่ตรวจได้',(checkedPct==null?'—':checkedPct+'%')+'   ('+rst.itemsOk+' / '+rst.itemsChecked+' รายการ)'],
     ['ความพร้อม Website',webPct+'%   ('+webReady+' / 2 แพลตฟอร์มพร้อมใช้งาน)']
   ];
+  if(rst.rdDown)kv.push(['เครื่องที่ RustDesk ใช้งานไม่ได้',rst.rdDown+' เครื่อง ('+(r.kiosks||[]).filter(rustdeskDown).map(k=>k.kiosk_id).join(', ')+') — นับ % RustDesk แยก ไม่นับเป็นเครื่องไม่พร้อมใช้งาน']);
   if(rst.pax)kv.push(['เครื่องที่ผู้โดยสารใช้งานอยู่',rst.pax+' เครื่อง ('+paxKiosks(r.kiosks).map(k=>k.kiosk_id).join(', ')+') — ยังตรวจบางหัวข้อไม่ได้ ไม่นับเป็นเครื่องเสีย']);
   kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังไม่ได้ตรวจ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
@@ -1540,9 +1548,10 @@ async function buildSingleReportDocxBlob(r){
     const cls=kioskClass(k),wl=waitLabels(k).join(', ');
     const mark=t=>{const s=subStateOf(k,t);return s==='wait'?'⏳':(s==='ok'?yes:no);};
     const paxNow=immSplit(k.remark).pax&&wl?' — ผู้โดยสารใช้งานอยู่':'';
+    const rdNote=rustdeskDown(k)&&cls!=='notready'?' · RustDesk ใช้งานไม่ได้ (ไม่นับเป็นเครื่องไม่พร้อม)':'';
     const status=cls==='occupied'?'ยังไม่ได้ตรวจ (ทุกรายการ)'+paxNow
-      :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'
-      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+paxNow)
+      :cls==='ready'?'พร้อมใช้งาน (ตรวจครบ)'+rdNote
+      :cls==='usable_wait'?('พร้อมใช้งาน · ยังไม่ได้ตรวจ '+wl+paxNow+rdNote)
       :'Not Ready';
     const sp=immSplit(k.remark);
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
@@ -1622,7 +1631,7 @@ function problemBars(reports){
   const hmap={};KIOSKS.forEach(id=>hmap[id]={id,notReady:0,checks:0});
   reports.forEach(r=>r.kiosks.forEach(k=>{const h=hmap[k.kiosk_id];if(!h)return;
     const st=subStatesOf(k);if(st.every(x=>x==='wait'))return;   // ยังไม่ได้ตรวจเลย = ไม่นับ
-    h.checks++;if(st.some(x=>x==='no'))h.notReady++;}));
+    h.checks++;if(isNotReadyStates(st))h.notReady++;}));
   return Object.values(hmap).filter(h=>h.notReady>0).sort((a,b)=>b.notReady-a.notReady).slice(0,12).map(h=>({label:h.id,value:h.notReady,color:'#f43f5e'}));
 }
 async function buildReportDocxBlob(start,end,word,label){

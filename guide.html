@@ -509,7 +509,7 @@
           แต่ตรวจ <strong>RustDesk</strong> ไม่ได้ → <strong>กดปุ่ม "🧍 ผู้โดยสารใช้งานอยู่" ที่แถวของเครื่องนั้นปุ่มเดียว</strong><br>
           ระบบจะ <strong>ติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ</strong> และคง <strong>RustDesk</strong> เป็น ⏳ ไว้
           (ไม่ต้องกดทีละหัวข้อ) · เมื่อเครื่องว่างให้กลับมากด RustDesk เป็น ✓ หรือ ✘ ปุ่มผู้โดยสารจะล้างเอง<br>
-          <strong>⏳ = ยังไม่ได้ตรวจ</strong> (ไม่ใช่เครื่องเสีย) · <strong>✘ = ใช้งานไม่ได้</strong> (นับเป็น Not Ready)<br>
+          <strong>⏳ = ยังไม่ได้ตรวจ</strong> (ไม่ใช่เครื่องเสีย) · <strong>✘ = ใช้งานไม่ได้</strong> (ต้องใส่ Remark เหตุผล)<br>
           🧍 <strong>ผลของปุ่ม "ผู้โดยสารใช้งานอยู่"</strong> — แถวเป็นสีส้มอ่อน และ<strong>การ์ดสถิติ</strong>นับเครื่องนี้เป็น
           <strong>"ใช้งานได้ปกติ"</strong> (System ✓ / Network ✓) โดยมีเพียง <strong>RustDesk</strong> ที่ยังไม่ได้ตรวจ
           (ไม่ถูกนับเป็นเครื่องเสีย ไม่ต้องใส่ Remark) ระบบแสดงเหตุผลในการ์ด "ยังไม่ได้ตรวจ" ("ผู้โดยสารใช้งานอยู่ N เครื่อง")
@@ -517,6 +517,14 @@
           ↩️ กดปุ่มซ้ำเพื่อยกเลิก (คืน System/Network ที่ระบบติ๊กให้กลับเป็น ⏳) · กดได้เฉพาะเมื่อ RustDesk ของเครื่องนั้นยังเป็น ⏳<br>
           🕘 ระบบ<strong>ไม่บันทึกเวลารายเครื่อง</strong> — จะกดตรวจทีละเครื่องหรือกรอกทั้งหมดในครั้งเดียวก็ได้
           ใช้เวลาเริ่ม/เวลาตรวจเสร็จของทั้งรอบเป็นตัวคิดระยะเวลา
+        </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#fdf2f2; border:1px solid #f3c1c1; border-radius:8px; padding:8px 10px; line-height:1.7;">
+          🧮 <strong>เครื่องแบบไหนถึงเป็น "Not Ready"</strong><br>
+          • <strong>Not Ready = System หรือ Network เป็น ✘</strong> (เครื่องใช้งานไม่ได้จริง) → นับในการ์ด Not Ready และไม่นับใน "พร้อมใช้งาน"<br>
+          • <strong>RustDesk ✘ ไม่ถือว่าเครื่องไม่พร้อมใช้งาน</strong> (ผู้โดยสารยังใช้เครื่องได้ เพียงแต่ OSO remote เข้าไม่ได้)
+          เครื่องนั้นยังนับเป็น <strong>"พร้อมใช้งาน"</strong> และ<strong>นับ % ของ RustDesk แยกต่างหาก</strong> (การ์ด RustDesk % จะลดลง ส่วน System % / Network % ไม่เปลี่ยน)<br>
+          • ต้องใส่ Remark เหตุผลทุกครั้งที่กด ✘ (รวม RustDesk) · เครื่องที่ RustDesk ✘ จะแสดงใน "เครื่องที่ต้องติดตาม" และในรายงาน DOCX ว่า "RustDesk ใช้งานไม่ได้"<br>
+          ตัวอย่าง: IMM006 System ✓ · RustDesk ✘ · Network ✓ → พร้อมใช้งาน 1 เครื่อง, Not Ready 0, RustDesk % = ผ่านน้อยลง 1 เครื่อง
         </div>
         <div style="margin-top:8px; font-size:11px; color:var(--muted); background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; line-height:1.7;">
           📊 <strong>การคิด % ของการ์ดแต่ละหัวข้อ</strong> — คิดจาก
@@ -581,7 +589,7 @@
       <div class="tip-icon">⚠️</div>
       <div class="tip-body">
         <strong>เมื่อไหร่ถึงเป็น "Not Ready" และต้องใส่ Remark</strong>
-        <p>เครื่องเป็น Not Ready เมื่อมีหัวข้อที่กดเป็น <strong>✘ ใช้งานไม่ได้</strong> — ต้องใส่ Remark บอกเหตุผล · หัวข้อ <strong>⏳ ยังไม่ได้ตรวจ</strong> (รวมกรณีผู้โดยสารใช้งานอยู่) ไม่นับเป็นเครื่องเสียและไม่ต้องใส่ Remark</p>
+        <p>เครื่องเป็น Not Ready เมื่อ <strong>System หรือ Network</strong> กดเป็น <strong>✘ ใช้งานไม่ได้</strong> (RustDesk ✘ ไม่ทำให้เป็น Not Ready แต่นับ % RustDesk แยก) — ต้องใส่ Remark บอกเหตุผลทุกครั้งที่กด ✘ · หัวข้อ <strong>⏳ ยังไม่ได้ตรวจ</strong> (รวมกรณีผู้โดยสารใช้งานอยู่) ไม่นับเป็นเครื่องเสียและไม่ต้องใส่ Remark</p>
       </div>
     </div>
     <div class="tip success">

@@ -218,5 +218,27 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.equal(s.usable, 1, 'counted as usable'); assert.equal(s.notReady, 0);
   assert.deepEqual(Array.from(s.per, p => [p.l, p.ok, p.wait]), [['System', 1, 0], ['RustDesk', 0, 1], ['Network', 1, 0]]);
   assert.equal(s.pax, 1);
-  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, end-time fallback, passenger-in-use (auto System/Network), table pagination and no per-kiosk time OK');
+  // ---- RustDesk ✘ ไม่ใช่เครื่องไม่พร้อม: คิด % แยก ----
+  const kc = vm.runInContext('kioskClass', context), rs2 = vm.runInContext('readinessStats', context);
+  const K = (id, sys, rd, net) => ({ kiosk_id: id, system_ready: sys, rustdesk_ready: rd, network_ready: net, recheck_items: [], remark: null });
+  assert.equal(kc(K('A', true, false, true)), 'ready', 'RustDesk ✘ only → still usable');
+  assert.equal(kc(K('A', false, true, true)), 'notready', 'System ✘ → Not Ready');
+  assert.equal(kc(K('A', true, true, false)), 'notready', 'Network ✘ → Not Ready');
+  assert.equal(kc(K('A', false, false, true)), 'notready', 'System ✘ + RustDesk ✘ → Not Ready');
+  const set = [K('IMM001', true, true, true), K('IMM002', true, false, true), K('IMM003', false, true, true), K('IMM004', true, true, false)];
+  const q = rs2(set, 4);
+  assert.equal(q.usable, 2, 'usable = IMM001 + IMM002'); assert.equal(q.notReady, 2); assert.equal(q.pct, 50); assert.equal(q.rdDown, 1);
+  const pp = Object.fromEntries(Array.from(q.per, p => [p.t, [p.ok, p.no, p.pct]]));
+  assert.deepEqual(pp.system, [3, 1, 75]); assert.deepEqual(pp.rustdesk, [3, 1, 75]); assert.deepEqual(pp.network, [3, 1, 75]);
+  const q2 = rs2([K('IMM001', true, true, true), K('IMM002', true, false, true)], 2);
+  assert.deepEqual([q2.usable, q2.notReady, q2.pct, q2.rdDown], [2, 0, 100, 1], 'RustDesk-only failure keeps 100% machine readiness');
+  assert.deepEqual(Array.from(q2.per, p => p.pct), [100, 50, 100], 'RustDesk % separate (50%), System/Network unaffected');
+  // รายงาน DOCX ระบุเหตุผลของเครื่องที่ RustDesk ✘
+  const kRd = kiosks.map(k => k.kiosk_id === 'IMM006' ? { ...k, rustdesk_ready: false, recheck_items: [], remark: 'RustDesk remote ไม่ได้' } : k);
+  return vm.runInContext('buildSingleReportDocxBlob', context)({kiosks: kRd, total: 20, date: '2026-09-29', shift: 'IMP/D 10:00', officer: 'Test', webPc: true, webMobile: true}).then(xr => {
+    assert.ok(xr.includes('เครื่องที่ RustDesk ใช้งานไม่ได้') && xr.includes('1 เครื่อง (IMM006)'), 'summary row');
+    assert.ok(xr.includes('พร้อมใช้งาน (ตรวจครบ) · RustDesk ใช้งานไม่ได้'), 'status text keeps machine usable');
+    assert.ok(xr.includes('Not Ready') , 'header still present');
+    console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, end-time fallback, passenger-in-use (auto System/Network), RustDesk-separate stats, table pagination and no per-kiosk time OK');
+  });
 }).catch(e => { console.error(e); process.exitCode = 1; });
