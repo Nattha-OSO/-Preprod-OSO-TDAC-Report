@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='40';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='41';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -174,7 +174,7 @@ function kioskRowsHtml(){
     '<td><div class="checks">'+
       SUBSYS.map(s=>'<button type="button" class="subchk" data-kiosk="'+id+'" data-type="'+s.t+'" data-state="wait" onclick="cycleSub(this)" title="กดสลับ: ⏳ ยังไม่ได้ตรวจ → ✓ พร้อมใช้งาน → ✘ ใช้งานไม่ได้"><span class="subl">'+s.l+'</span></button>').join('')+
       '<button type="button" class="btn-all" data-kiosk="'+id+'" onclick="kioskCheckAll(this)">Check All</button>'+
-      '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="กดเมื่อเครื่องนี้มีผู้โดยสารใช้งานอยู่ จึงยังตรวจบางหัวข้อไม่ได้ (ไม่นับเป็นเครื่องเสีย)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
+      '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="ผู้โดยสารกำลังใช้เครื่องนี้ → ระบบติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ เหลือ RustDesk เป็น ⏳ (ตรวจไม่ได้)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
     '</div></td>'+
@@ -554,11 +554,22 @@ function cycleSub(btn){
   if(!subChips(body,id).some(b=>b&&b.dataset.state==='no')){const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.classList.remove('invalidf');}
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
+/* ปุ่ม "ผู้โดยสารใช้งานอยู่" = เครื่องใช้งานได้ปกติ (ผู้โดยสารกำลังใช้ได้) แต่ตรวจ RustDesk ไม่ได้
+   กดเปิด → ติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ (เฉพาะที่ยัง ⏳ — ไม่ทับที่ผู้ตรวจกด ✘ ไว้) เหลือ RustDesk เป็น ⏳
+   กดปิด → คืน System/Network ที่ระบบติ๊กให้กลับเป็น ⏳ (เฉพาะที่ยังเป็น ✓ อยู่) */
+function paxChip(body,id,t){return body.querySelector('.subchk[data-kiosk="'+id+'"][data-type="'+t+'"]');}
 function togglePax(btn){
   const body=btn.closest('tbody'),id=btn.dataset.kiosk;
-  const hasWait=subChips(body,id).some(b=>b&&b.dataset.state==='wait');
-  if(btn.dataset.state!=='on'&&!hasWait)return toast('เครื่องนี้ตรวจครบทุกหัวข้อแล้ว — ปุ่มนี้ใช้กับเครื่องที่ยังมีหัวข้อ ⏳ ค้างอยู่',true);
-  btn.dataset.state=btn.dataset.state==='on'?'':'on';
+  if(btn.dataset.state==='on'){
+    (btn.dataset.auto||'').split(',').filter(Boolean).forEach(t=>{const c=paxChip(body,id,t);if(c&&c.dataset.state==='ok')c.dataset.state='wait';});
+    btn.dataset.auto='';btn.dataset.state='';
+  }else{
+    const rd=paxChip(body,id,'rustdesk');
+    if(!rd||rd.dataset.state!=='wait')return toast('RustDesk ของเครื่องนี้ตรวจแล้ว — ปุ่มนี้ใช้เมื่อผู้โดยสารใช้เครื่องอยู่จึงยังตรวจ RustDesk ไม่ได้ (ให้ปล่อย RustDesk เป็น ⏳)',true);
+    const auto=[];
+    ['system','network'].forEach(t=>{const c=paxChip(body,id,t);if(c&&c.dataset.state==='wait'){c.dataset.state='ok';auto.push(t);}});
+    btn.dataset.auto=auto.join(',');btn.dataset.state='on';
+  }
   syncRowBtn(body,id);
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }

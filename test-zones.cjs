@@ -186,5 +186,37 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   els['.subchk[data-kiosk="' + id + '"][data-type="rustdesk"]'].dataset.state = 'ok';  // ตรวจครบแล้ว
   syncRowBtn(body, id); assert.equal(paxBtn.dataset.state, '', 'auto-clear when fully checked');
   togglePax(paxBtn);  assert.equal(paxBtn.dataset.state, '', 'cannot turn on when nothing is pending');
-  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, end-time fallback, passenger-in-use, table pagination and no per-kiosk time OK');
+  // ---- ปุ่มผู้โดยสาร: ติ๊ก System + Network ให้เอง เหลือ RustDesk ⏳ ----
+  const mkChip = (state) => ({ dataset: { state }, classList: { toggle(){}, remove(){}, add(){} } });
+  const build = (states) => {
+    const id = 'IMM009', e = {};
+    ['system','rustdesk','network'].forEach((tp, i) => e['.subchk[data-kiosk="' + id + '"][data-type="' + tp + '"]'] = mkChip(states[i]));
+    e['.btn-all[data-kiosk="' + id + '"]'] = mkChip(''); e['tr[data-row="' + id + '"]'] = mkChip('');
+    const pb = { dataset: { kiosk: id, state: '' }, classList: { toggle(){}, remove(){}, add(){} } }; e['.btn-pax[data-kiosk="' + id + '"]'] = pb;
+    const bd = { id: 'x', querySelector: s => e[s] || null }; pb.closest = () => bd;
+    const st = () => ['system','rustdesk','network'].map(tp => e['.subchk[data-kiosk="' + id + '"][data-type="' + tp + '"]'].dataset.state);
+    return { pb, st, e, id, bd };
+  };
+  const tp = vm.runInContext('togglePax', context), sync = vm.runInContext('syncRowBtn', context);
+  let c = build(['wait','wait','wait']);
+  tp(c.pb);  assert.deepEqual(c.st(), ['ok','wait','ok'], 'pax ON → System ✓ Network ✓ RustDesk ⏳');  assert.equal(c.pb.dataset.state, 'on');
+  tp(c.pb);  assert.deepEqual(c.st(), ['wait','wait','wait'], 'pax OFF → revert auto ticks');       assert.equal(c.pb.dataset.state, '');
+  c = build(['ok','wait','wait']);                                    // ผู้ตรวจกด System ✓ เองก่อน
+  tp(c.pb);  assert.deepEqual(c.st(), ['ok','wait','ok']);
+  tp(c.pb);  assert.deepEqual(c.st(), ['wait','wait','wait'].map((x, i) => (i === 0 ? 'ok' : x)), 'manual System ✓ is kept on OFF (not auto-ticked)');
+  c = build(['no','wait','wait']);                                    // System ✘ ที่ผู้ตรวจกดเอง ต้องไม่ถูกทับ
+  tp(c.pb);  assert.deepEqual(c.st(), ['no','wait','ok'], 'explicit ✘ is never overwritten');
+  c = build(['wait','ok','wait']);                                    // RustDesk ตรวจแล้ว → ใช้ปุ่มไม่ได้ ไม่แตะอะไร
+  tp(c.pb);  assert.deepEqual(c.st(), ['wait','ok','wait'], 'refused when RustDesk already checked');  assert.equal(c.pb.dataset.state, '');
+  c = build(['wait','wait','wait']);
+  tp(c.pb);  c.e['.subchk[data-kiosk="' + c.id + '"][data-type="rustdesk"]'].dataset.state = 'ok'; sync(c.bd, c.id);
+  assert.equal(c.pb.dataset.state, '', 'RustDesk checked later → pax clears itself');  assert.deepEqual(c.st(), ['ok','ok','ok']);
+  // การ์ดสถิติ: เครื่องที่ผู้โดยสารใช้ = System ✓ Network ✓ RustDesk ⏳ → พร้อมใช้งาน และมีแค่ RustDesk ที่ยังไม่ได้ตรวจ
+  const rs = vm.runInContext('readinessStats', context);
+  const paxKiosk = { kiosk_id: 'IMM009', system_ready: true, rustdesk_ready: false, network_ready: true, recheck_items: ['rustdesk'], remark: 'ผู้โดยสารใช้งานอยู่' };
+  const s = rs([paxKiosk], 1);
+  assert.equal(s.usable, 1, 'counted as usable'); assert.equal(s.notReady, 0);
+  assert.deepEqual(Array.from(s.per, p => [p.l, p.ok, p.wait]), [['System', 1, 0], ['RustDesk', 0, 1], ['Network', 1, 0]]);
+  assert.equal(s.pax, 1);
+  console.log('zone mapping, clicks, legacy preservation, DOCX report XML, wait breakdown, end-time fallback, passenger-in-use (auto System/Network), table pagination and no per-kiosk time OK');
 }).catch(e => { console.error(e); process.exitCode = 1; });
