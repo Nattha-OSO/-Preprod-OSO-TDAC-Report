@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='42';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='43';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -918,10 +918,20 @@ function buildReport(r,kmap){
     itemsWait:st?st.itemsWait:0,itemsChecked:st?st.itemsChecked:null,itemsTotal:st?st.itemsTotal:total*SUBSYS.length,itemsOk:st?st.itemsOk:null,
     submittedBy:r.submitted_by||''};
 }
+// Supabase limits each response to 1000 rows; 50 reports already contain 1000 kiosks.
+async function loadAllKiosks(){
+  const rows=[];
+  for(let start=0;;start+=1000){
+    const r=await sb.from('report_kiosks').select('*').order('id').range(start,start+999);
+    if(r.error)throw r.error;
+    rows.push(...(r.data||[]));
+    if((r.data||[]).length<1000)return rows;
+  }
+}
 async function loadData(){
   const [rp,kk,of]=await Promise.all([
     sb.from('reports').select('*').order('report_date',{ascending:false}).order('created_at',{ascending:false}),
-    sb.from('report_kiosks').select('*'),
+    loadAllKiosks().then(data=>({data})),
     sb.from('officers').select('*').order('name')
   ]);
   if(rp.error)throw rp.error;
@@ -1199,6 +1209,7 @@ async function delOfficer(id){
 /* ---------- Modal รายละเอียด/แก้ไขรายงาน ---------- */
 function openReportDetail(id){
   detailId=Number(id);const r=(data.reports||[]).find(x=>x.id===detailId);if(!r)return toast('ไม่พบรายงาน',true);
+  if((r.kiosks||[]).length!==r.total)return toast('โหลดข้อมูลรายเครื่องไม่ครบ กรุณารีเฟรช — ไม่เปิดแก้ไขเพื่อป้องกันข้อมูลเดิมถูกทับ',true);
   const editable=can('edit_report');
   $('rdTitle').textContent=(editable?'แก้ไขรายงาน':'รายละเอียดรายงาน')+' · '+dispDate(r.date);
   $('rdSub').textContent='รอบ '+r.shift+(r.inspectStart?' · เวลา '+r.inspectStart+(r.inspectEnd?'–'+r.inspectEnd:''):'')+' · ผู้ตรวจ '+r.officer+' · บันทึกเมื่อ '+r.created;
