@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='43';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='44';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -177,7 +177,7 @@ function kioskRowsHtml(){
       '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="ผู้โดยสารกำลังใช้เครื่องนี้ → ระบบติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ เหลือ RustDesk เป็น ⏳ (ตรวจไม่ได้)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
-    '</div></td>'+
+    '</div><fieldset class="speed-fields"><legend>Network · Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'</fieldset></td>'+
     '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
 /* ============================================================
@@ -590,6 +590,21 @@ function kioskCheckAll(btn){
   chips.forEach(b=>{if(b)b.dataset.state=allOk?'wait':'ok';});
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
+// ponytail: speed results stored in the existing remark, avoiding a database migration; use dedicated columns if analytics need them.
+function speedJoin(text,download,upload){
+  const valid=v=>v===''||(/^\d+(\.\d{1,2})?$/.test(v)&&Number(v)<=100000);
+  if(!valid(download)||!valid(upload))throw new Error('ความเร็วต้องเป็นตัวเลข 0–100000 Mbps ทศนิยมไม่เกิน 2 ตำแหน่ง');
+  return text+((download||upload)?'\n[Wi-Fi AOT TDAC | Download '+(download||'—')+' Mbps | Upload '+(upload||'—')+' Mbps]':'');
+}
+function speedSplit(text){
+  const s=String(text||''),m=/(?:^|\n)\[Wi-Fi AOT TDAC \| Download ([\d.]+|—) Mbps \| Upload ([\d.]+|—) Mbps\]$/.exec(s);
+  return m?{text:s.slice(0,m.index),download:m[1]==='—'?'':m[1],upload:m[2]==='—'?'':m[2]}:{text:s,download:'',upload:''};
+}
+function speedInput(body,id,t){return body.querySelector('input[data-kiosk="'+id+'"][data-speed="'+t+'"]');}
+function validateSpeedFields(body){
+  const bad=Array.from(body.querySelectorAll('[data-speed]')).find(e=>!e.checkValidity());
+  if(!bad)return true;bad.reportValidity();bad.focus();toast('กรุณากรอกความเร็วเป็นตัวเลขที่ถูกต้อง (Mbps)',true);return false;
+}
 function readKiosks(bodyId){
   const body=$(bodyId);return KIOSKS.map(id=>{
     const rc=body.querySelector('.recheck-val[data-kiosk="'+id+'"]');
@@ -603,7 +618,7 @@ function readKiosks(bodyId){
       system_ready:st('system')==='ok',rustdesk_ready:st('rustdesk')==='ok',network_ready:st('network')==='ok',
       occupied:wait.length===SUBSYS.length,   // คงคอลัมน์เดิมไว้: ⏳ ครบทุกหัวข้อ = ยังไม่ได้ตรวจเครื่องนี้เลย
       recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
-      remark:immJoin(imm,rem,pax)||null,remark_photos:(photoState[id]||[]).slice()};
+      remark:immJoin(imm,speedJoin(rem,(speedInput(body,id,'download')||{}).value||'',(speedInput(body,id,'upload')||{}).value||''),pax)||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
@@ -613,7 +628,9 @@ function setKiosks(bodyId,arr){
     // แยก "มี/ไม่มี ตม. ประจำจุด" ออกจากบรรทัดแรกของหมายเหตุ กลับไปเป็นปุ่ม + ข้อความ
     const sp=immSplit(k.remark);
     setImm(body,id,sp.imm);setPax(body,id,sp.pax);
-    const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=sp.text||'';
+    const speed=speedSplit(sp.text);
+    const r=body.querySelector('textarea[data-kiosk="'+id+'"][data-type="remark"]');if(r)r.value=speed.text||'';
+    ['download','upload'].forEach(t=>{const e=speedInput(body,id,t);if(e)e.value=speed[t];});
     setRecheck(body,id,k.recheck_at||'');
     photoState[id]=(k.remark_photos||[]).slice();renderPhotos(id,bodyId);
     syncRowBtn(body,id);
@@ -758,6 +775,7 @@ function fillOfficerEmail(){
   inp.value=officerEmailMap[$('pubOfficer').value]||'';inp.classList.remove('invalidf');
 }
 async function submitPublic(){
+  if(!validateSpeedFields($('pubKioskBody')))return;
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
   const date=$('pubDate').value,shift=$('pubShift').value,officer=$('pubOfficer').value.trim();
   [['pubDateBtn',date],['pubShift',shift],['pubOfficer',officer]].forEach(([id,v])=>{const el=$(id);if(el)el.classList.toggle('invalidf',!v);});
@@ -782,7 +800,7 @@ async function submitPublic(){
   // บังคับ Remark เฉพาะเครื่องที่มีหัวข้อ ✘ "ใช้งานไม่ได้" — หัวข้อ ⏳ "ยังไม่ได้ตรวจ" ไม่ต้องใส่
   kiosks.forEach(k=>{
     // นับเฉพาะข้อความที่ผู้ตรวจพิมพ์เอง — บรรทัด "ตม. ประจำจุด" ไม่ถือเป็นเหตุผลของ Not Ready
-    if(subStatesOf(k).some(x=>x==='no')&&!immSplit(k.remark).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
+    if(subStatesOf(k).some(x=>x==='no')&&!speedSplit(immSplit(k.remark).text).text.trim())markBad($('pubKioskBody').querySelector('textarea[data-kiosk="'+k.kiosk_id+'"][data-type="remark"]'));});
   if(!$('pubWebPc').checked&&!($('pubWebPcRemark').value||'').trim())markBad($('pubWebPcRemark'));
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
@@ -1251,6 +1269,7 @@ function openReportDetail(id){
 }
 function closeReportDetail(){$('reportDetailModal').classList.remove('open');detailId=0;}
 async function saveReportDetail(){
+  if(!validateSpeedFields($('rdKioskBody')))return;
   if(!detailId)return;
   const date=$('rdDate').value,shift=$('rdShift').value,officer=$('rdOfficer').value;
   if(!date||!shift||!officer)return toast('กรอกวันที่ รอบ และผู้ตรวจให้ครบ',true);

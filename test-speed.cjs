@@ -1,0 +1,9 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c={window:{},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
+const html=vm.runInContext('kioskRowsHtml()',c);
+assert.equal((html.match(/data-speed="download"/g)||[]).length,20);
+assert.equal((html.match(/data-speed="upload"/g)||[]).length,20);
+const join=vm.runInContext('speedJoin',c),split=vm.runInContext('speedSplit',c);
+const r=split(join('ข้อความเดิม', '123.45','67.89'));assert.deepEqual([r.text,r.download,r.upload],['ข้อความเดิม','123.45','67.89']);
+assert.equal(join('ข้อความเดิม','',''),'ข้อความเดิม');assert.equal(split('ข้อความเดิม').text,'ข้อความเดิม');
+console.log('PASS per-kiosk speed fields, values and legacy remarks');
