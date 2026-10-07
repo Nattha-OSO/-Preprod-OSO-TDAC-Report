@@ -15,8 +15,7 @@ function speedFmt(v){return v===null?'—':v.toFixed(2);}
 function speedSummaryDocx(reports){
   const s=speedStats(reports),items=[Object.assign({title:'รวมทุกโซน'},s.all),...s.zones];
   let body=dHeading('Network speed test Wi-Fi: AOT TDAC',{keepNext:true});
-  body+=dPar('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง หน่วย Mbps • ช่องว่างไม่นับเป็น 0 • Download/Upload นับจำนวนตัวอย่างแยกกัน',{sz:18});
-  items.forEach(x=>{body+=dPar(x.title,{bold:true,keepNext:true});body+=dKpiCards([['Download เฉลี่ย',speedFmt(x.download.avg),'Mbps · '+x.download.count+' ตัวอย่าง'],['Upload เฉลี่ย',speedFmt(x.upload.avg),'Mbps · '+x.upload.count+' ตัวอย่าง']]);});
+  body+=dPar('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง หน่วย Mbps • ช่องว่างไม่นับเป็น 0 • Download/Upload นับจำนวนตัวอย่างแยกกัน',{sz:18,keepNext:true,after:80});
   body+=dTable([['โซน','Download เฉลี่ย (Mbps)','จำนวน Download','Upload เฉลี่ย (Mbps)','จำนวน Upload'],...items.map(x=>[x.title,speedFmt(x.download.avg),String(x.download.count),speedFmt(x.upload.avg),String(x.upload.count)])],[2800,2200,1400,2200,1400],null,{keepTogether:true});
   return body;
 }

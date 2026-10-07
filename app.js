@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='46';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='47';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -1530,7 +1530,6 @@ async function buildSingleReportDocxBlob(r){
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
   kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
-  body+=speedSummaryDocx([r]);
   body+=dKvTable(kv,3200,6800);
   // การ์ดแถวที่ 1 — % รายหัวข้อ (ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้) + ภาพรวมเครื่อง
   body+=dKpiCards(rst.per.map(p=>[p.l,(p.pct==null?'—':p.pct+'%'),p.ok+' / '+p.checked+' ที่ตรวจได้'+(p.wait?('  ·  ⏳'+p.wait):''),
@@ -1546,6 +1545,7 @@ async function buildSingleReportDocxBlob(r){
     ['Website (Mobile)',r.webMobile?'✔':'✘',r.webMobile?'System Ready':'Not Ready',r.webMobile?'15803d':'c0392b'],
     ['Web Readiness',webPct+'%',webReady+' / 2 พร้อม',webPct>=100?'15803d':webPct>=50?'b9770e':'c0392b']
   ]);
+  body+=speedSummaryDocx([r]);
   /* ---- ตัวช่วยฝังรูปลงเอกสาร (ใช้ร่วมกันทั้งเซลล์หมายเหตุรายเครื่อง และภาพประกอบท้ายรายงาน) ----
      ทุกรูปผ่านทางนี้ทางเดียว จึงนับเลขไฟล์/relationship ต่อเนื่องกันได้ ไม่ชนกัน
      ถ้ารูปใดฝังไม่ได้ ก็ข้ามไปเฉย ๆ (นับไว้เตือนท้ายสุด) เอกสารยังออกได้ครบ */
@@ -1676,9 +1676,9 @@ async function buildReportDocxBlob(start,end,word,label){
   body+=dPar('รายงานการตรวจสอบระบบ TDAC (Website + Kiosk) '+word+' '+label,{sz:34,bold:true,color:'111827',align:'center',after:60});
   body+=dPar('Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)',{sz:20,color:'374151',align:'center',after:200});
   body+=dTable([['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO-TDAC Operational Report (Supabase)']],[2600,6400],'F2F7FF',{headerAlign:null});
-  body+=speedSummaryDocx(reports);
   body+=dHeading('สรุปภาพรวม (Dashboard Summary)');
   body+=dKpiCards([['จำนวนรายงาน',String(s.total),'รอบ'],['Readiness เฉลี่ย',(s.avgReadiness||0)+'%','ทุกรอบ'],['Web PC พร้อม',(s.webPcPct||0)+'%','ของรอบ'],['Web Mobile พร้อม',(s.webMobilePct||0)+'%','ของรอบ']]);
+  body+=speedSummaryDocx(reports);
   body+=dHeading('กราฟจำนวนครั้ง Not Ready รายเครื่อง');
   if(hasChart)body+=dImage();else body+=dPar('ไม่พบเครื่อง Kiosk ที่ Not Ready ในรอบรายงานนี้ (ทุกเครื่องพร้อมใช้งาน)',{color:'15803d'});
   body+=dHeading('เครื่อง Kiosk ที่ต้องติดตาม');

@@ -149,7 +149,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   }
   // หัวข้อโซน + บรรทัดสถานะ ตม. ต้องไปกับตาราง
   for (const zt of ['Zone 1 ·', 'Zone 4 ·']) {
-    const i = xml.indexOf(zt), ps = xml.lastIndexOf('<w:p>', i);
+    const i = xml.indexOf(zt, xml.indexOf('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC')), ps = xml.lastIndexOf('<w:p>', i);
     assert.ok(xml.slice(ps, i).includes('<w:keepNext/>'), zt + ' heading keeps with table');
   }
   // ---- ไม่แสดงเวลาตรวจรายเครื่อง ----
