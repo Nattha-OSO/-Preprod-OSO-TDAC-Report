@@ -581,6 +581,7 @@
       <button data-view="insights" onclick="showView('insights',this)">4. วิเคราะห์ภาพรวม</button>
       <div class="nav-title">จัดการข้อมูล</div>
       <button data-view="directory" id="navDirectory" onclick="showView('directory',this)">จัดการรายชื่อเจ้าหน้าที่</button>
+      <button data-view="speed" id="navSpeed" class="hidden" onclick="showView('speed',this)">Dashboard ทดสอบความเร็ว (admin)</button>
       <button data-view="users" id="navUsers" class="hidden" onclick="showView('users',this)">จัดการผู้ใช้ระบบ (admin)</button>
       <button data-view="perms" id="navPerms" class="hidden" onclick="showView('perms',this)">จัดการสิทธิ์ (admin)</button>
       <button data-view="audit" id="navAudit" class="hidden" onclick="showView('audit',this)">บันทึกการใช้งานระบบ (admin)</button>
@@ -667,6 +668,7 @@
 <script src="config.js?v=45"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=45"></script>
+<script src="app.js?v=46"></script>
+<script src="speed-dashboard.js?v=46"></script>
 </body>
 </html>

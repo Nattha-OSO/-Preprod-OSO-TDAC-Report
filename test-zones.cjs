@@ -6,6 +6,7 @@ const copy = ['app.js','index.html','guide.html'].map(name => fs.readFileSync(__
 const context = {window: {}, document: {addEventListener() {}}, setTimeout, clearTimeout};
 vm.createContext(context);
 vm.runInContext(source, context);
+vm.runInContext(fs.readFileSync(__dirname + '/speed-dashboard.js', 'utf8'), context);
 const result = vm.runInContext(`(() => ({html:kioskRowsHtml(),zones:ZONES.map(z=>({title:z.title,ids:z.ids})),split:immSplit,join:immJoin}))()`, context);
 const expected = [
   ['ช่องตรวจตม.ฝั่งตะวันตก', 1, 6],
