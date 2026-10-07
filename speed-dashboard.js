@@ -16,7 +16,9 @@ function speedSummaryDocx(reports){
   const s=speedStats(reports),items=[Object.assign({title:'รวมทุกโซน'},s.all),...s.zones];
   let body=dHeading('Network speed test Wi-Fi: AOT TDAC',{keepNext:true});
   body+=dPar('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง หน่วย Mbps • ช่องว่างไม่นับเป็น 0 • Download/Upload นับจำนวนตัวอย่างแยกกัน',{sz:18,keepNext:true,after:80});
-  body+=dTable([['โซน','Download เฉลี่ย (Mbps)','จำนวน Download','Upload เฉลี่ย (Mbps)','จำนวน Upload'],...items.map(x=>[x.title,speedFmt(x.download.avg),String(x.download.count),speedFmt(x.upload.avg),String(x.upload.count)])],[2800,2200,1400,2200,1400],null,{keepTogether:true});
+  const total=s.all;
+  body+=dPar('จำนวนเครื่องที่ทดสอบ Download '+total.download.count+' เครื่อง • จำนวนเครื่องที่ทดสอบ Upload '+total.upload.count+' เครื่อง',{sz:20,bold:true,color:'0b2f6b',keepNext:true,after:80});
+  body+=dTable([['โซน','Download เฉลี่ย (Mbps)','จำนวนเครื่องที่ทดสอบ Download','Upload เฉลี่ย (Mbps)','จำนวนเครื่องที่ทดสอบ Upload'],...items.map(x=>[x.title,speedFmt(x.download.avg),x.download.count+' เครื่อง',speedFmt(x.upload.avg),x.upload.count+' เครื่อง'])],[2400,2100,1900,2100,1900],null,{keepTogether:true});
   return body;
 }
 function selectedSpeedReports(){return (data.reports||[]).filter(r=>(!speedFrom||r.date>=speedFrom)&&(!speedTo||r.date<=speedTo));}
