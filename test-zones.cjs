@@ -111,8 +111,8 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   // หัวข้อรายละเอียด Kiosk ต้องขึ้นหน้าใหม่ (และมีเพียงจุดเดียวในเอกสาร)
   const H = 'รายละเอียดการตรวจความพร้อมของ KIOSK TDAC';
   const at = xml.indexOf(H), pStart = xml.lastIndexOf('<w:p>', at);
-  assert.ok(at > 0 && xml.slice(pStart, at).includes('<w:pageBreakBefore/>'), 'heading starts a new page');
-  assert.equal(xml.split('<w:pageBreakBefore/>').length - 1, 1, 'only one forced page break');
+  assert.ok(at > 0 && xml.slice(pStart, at).includes('<w:keepNext/>'), 'heading stays with zone table');
+  assert.equal(xml.split('<w:pageBreakBefore/>').length - 1, 0, 'no forced blank page after speed table');
   assert.ok(xml.includes('1 เครื่อง (IMM007)'));
   assert.ok(xml.includes('ยังไม่ได้ตรวจ RustDesk — ผู้โดยสารใช้งานอยู่'), 'status text');
   assert.equal(xml.split('— ผู้โดยสารใช้งานอยู่').length - 1, 1, 'label only on IMM007');

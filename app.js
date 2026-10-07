@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='48';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='49';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -601,10 +601,10 @@ function kioskCheckAll(btn){
 function speedJoin(text,download,upload){
   const valid=v=>v===''||(/^\d+(\.\d{1,2})?$/.test(v)&&Number(v)<=100000);
   if(!valid(download)||!valid(upload))throw new Error('ความเร็วต้องเป็นตัวเลข 0–100000 Mbps ทศนิยมไม่เกิน 2 ตำแหน่ง');
-  return text+((download||upload)?'\n[Wi-Fi AOT TDAC | Download '+(download||'—')+' Mbps | Upload '+(upload||'—')+' Mbps]':'');
+  return text+((download||upload)?'\n- [Wi-Fi AOT TDAC | Download '+(download||'—')+' Mbps | Upload '+(upload||'—')+' Mbps]':'');
 }
 function speedSplit(text){
-  const s=String(text||''),m=/(?:^|\n)\[Wi-Fi AOT TDAC \| Download ([\d.]+|—) Mbps \| Upload ([\d.]+|—) Mbps\]$/.exec(s);
+  const s=String(text||''),m=/(?:^|\n)(?:- )?\[Wi-Fi AOT TDAC \| Download ([\d.]+|—) Mbps \| Upload ([\d.]+|—) Mbps\]$/.exec(s);
   return m?{text:s.slice(0,m.index),download:m[1]==='—'?'':m[1],upload:m[2]==='—'?'':m[2]}:{text:s,download:'',upload:''};
 }
 function speedInput(body,id,t){return body.querySelector('input[data-kiosk="'+id+'"][data-speed="'+t+'"]');}
@@ -1572,7 +1572,7 @@ async function buildSingleReportDocxBlob(r){
       return dPhotoXml(rid,Math.round(wpx*9525),Math.round(hpx*9525),pid,fname,opt);
     }catch(e){photoFailed++;return '';}
   }
-  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) แยกตามโซน',{pageBreak:true});   // เริ่มหน้าใหม่
+  body+=dHeading('รายละเอียดการตรวจความพร้อมของ KIOSK TDAC (IMM001–IMM020) แยกตามโซน',{keepNext:true});   // ต่อจากตารางความเร็ว โดยให้หัวข้อไปกับตารางโซน
   // ponytail: เก็บสถานะรายเครื่องเดิมไว้ใน remark; โซนที่ข้อมูลเก่าต่างกันแสดงรายเครื่องจนกว่าจะเลือกใหม่
   const KW=[1100,1000,1000,1000,2100,3800];
   const KPHOTO_PX=205;                         // รูปกว้างสุดในเซลล์ Remark (≈ 2.1 นิ้ว)
@@ -1594,7 +1594,8 @@ async function buildSingleReportDocxBlob(r){
     const sp=immSplit(k.remark);
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
     let cell='';
-    const txt=(sp.text||'').trim();
+    const sv=speedSplit(sp.text);
+    const txt=speedJoin(sv.text,sv.download,sv.upload).trim();
     if(txt)cell+=dCellPar(txt,{sz:20,color:'1f2937'});
     const pics=(k.remark_photos||[]).filter(Boolean);
     for(let i=0;i<pics.length;i++)
