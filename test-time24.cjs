@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const c={window:{},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
+const n=vm.runInContext('normalizeTime24',c);
+assert.equal(n('930'),'09:30');assert.equal(n('2205'),'22:05');assert.equal(n('9:5'),'09:05');assert.equal(n('22:00'),'22:00');assert.equal(n('00:00'),'00:00');
+assert.equal(n('24:00'),null);assert.equal(n('12:60'),null);assert.equal(n('10:00 PM'),null);assert.equal(n('12:30 AM'),null);assert.equal(n(''),'');assert.equal(n('abc'),null);
+const f=vm.runInContext('fmtDateTime24',c);const s=f(new Date(2026,9,7,15,4,9));assert.ok(/15[:.]04/.test(s)&&!/AM|PM|am|pm|น\.|ก่อนเที่ยง|หลังเที่ยง/.test(s),s);
+const html=fs.readFileSync(__dirname+'/index.html','utf8')+fs.readFileSync(__dirname+'/app.js','utf8');
+assert.ok(!/type="time"/.test(html),'no native 12/24-locale time inputs left');
+for(const id of ['pubStart','pubEnd','rdStart','rdEnd'])assert.ok(new RegExp('id="'+id+'"[^>]*inputmode="numeric"[^>]*maxlength="5"').test(html)||new RegExp('id="'+id+'"[^>]*maxlength="5"[^>]*inputmode="numeric"').test(html),id);
+assert.ok(!/toLocaleString\('th-TH'\)/.test(fs.readFileSync(__dirname+'/app.js','utf8')),'all timestamps use 24h formatter');
+console.log('PASS 24-hour time parsing, formatting and inputs');

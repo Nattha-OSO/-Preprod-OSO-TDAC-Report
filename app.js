@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='49';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='50';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -36,7 +36,17 @@ const esc=s=>String(s==null?'':s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;'
 const num=x=>Number(x||0);
 function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]/g,' ');}
 function capL(t){const x=SUBSYS.find(s=>s.t===t);return x?x.l:t;}
-function fmtDateTime(v){if(!v)return '';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});}catch(e){return String(v);}}
+function fmtDateTime24(v,seconds){if(!v)return '';try{return new Date(v).toLocaleString('th-TH',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:seconds?'2-digit':undefined,hourCycle:'h23'});}catch(e){return String(v);}}
+function fmtDateTime(v){return fmtDateTime24(v);}
+function normalizeTime24(v){
+  const s=String(v||'').trim();if(!s)return '';
+  let m=/^(\d{1,2})\s*[:.]\s*(\d{1,2})\s*([ap]m)?$/i.exec(s)||/^(\d{1,2})(\d{2})\s*([ap]m)?$/i.exec(s);if(!m||m[3])return null;
+  let h=Number(m[1]),mi=Number(m[2]);const ap=(m[3]||'').toLowerCase();
+  if(ap){if(h<1||h>12)return null;if(ap==='am'&&h===12)h=0;else if(ap==='pm'&&h<12)h+=12;}
+  return h>23||mi>59?null:String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0');
+}
+function timeInputValue(id){const e=$(id);if(!e)return '';const v=normalizeTime24(e.value);if(v===null){e.classList.add('invalidf');e.focus();toast('กรุณากรอกเวลาเป็นรูปแบบ 24 ชั่วโมง เช่น 09:30 หรือ 22:00',true);throw new Error('invalid-time');}e.classList.remove('invalidf');e.value=v;return v;}
+function bindTime24(root){(root||document).querySelectorAll('.time24').forEach(e=>{if(e._t24)return;e._t24=1;e.addEventListener('input',()=>{e.classList.remove('invalidf');});e.addEventListener('change',()=>{const v=normalizeTime24(e.value);if(v===null)e.classList.add('invalidf');else{e.classList.remove('invalidf');e.value=v;}});e.addEventListener('blur',()=>{const v=normalizeTime24(e.value);if(v===null)e.classList.add('invalidf');else{e.classList.remove('invalidf');e.value=v;}});});}
 function thaiDate(d){return d.getDate()+' '+THAI_MONTHS[d.getMonth()]+' '+(d.getFullYear()+543);}
 function parseDate(s){if(!s)return null;const d=new Date(String(s).length<=10?(s+'T00:00:00'):s);return isNaN(d.getTime())?null:d;}
 function dispDate(s){const d=parseDate(s);return d?thaiDate(d):(s||'-');}
@@ -402,6 +412,7 @@ function setEndNow(){const e=$('pubEnd');if(!e)return;e.value=nowHM();e.classLis
 function endTimeOrNow(v){return String(v||'').trim()||nowHM();}
 function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 function initPublicForm(){
+  bindTime24($('pubForm'));
   const body=$('pubKioskBody');if(body&&!body.children.length)body.innerHTML=kioskRowsHtml();
   if(!$('pubDate').value)calSetDate(new Date());
   updatePubSummary();
@@ -811,8 +822,8 @@ async function submitPublic(){
   if(!$('pubWebPc').checked&&!($('pubWebPcRemark').value||'').trim())markBad($('pubWebPcRemark'));
   if(!$('pubWebMobile').checked&&!($('pubWebMobileRemark').value||'').trim())markBad($('pubWebMobileRemark'));
   if(firstBad){toast('รายการที่ "ไม่พร้อม" (Not Ready) ต้องระบุ Remark เหตุผลให้ครบทุกรายการ',true);firstBad.scrollIntoView({behavior:'smooth',block:'center'});try{firstBad.focus();}catch(_){}return;}
-  const inspectStart=($('pubStart').value||'').trim()||shiftStartTime(shift);
-  const inspectEnd=endTimeOrNow($('pubEnd').value);
+  let inspectStart,inspectEndRaw;try{inspectStart=timeInputValue('pubStart')||shiftStartTime(shift);inspectEndRaw=timeInputValue('pubEnd');}catch(e){return;}
+  const inspectEnd=endTimeOrNow(inspectEndRaw);
   // ── ตรวจครบก่อนส่ง: ถ้ายังมีหัวข้อที่เป็น ⏳ (ยังไม่ได้ตรวจ) ให้เตือน ──
   if(st.itemsWait>0&&!confirm('ยังมี ⏳ "ยังไม่ได้ตรวจ" อีก '+st.itemsWait+' รายการ ('+st.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')\n\nรายการ ⏳ จะไม่ถูกนับทั้งตัวตั้งและตัวหารของ % รายหัวข้อ\n\nกด "ตกลง" เพื่อส่งรายงานตอนนี้ (กลับมาอัปเดตรายงานเดิมได้ภายหลัง)\nกด "ยกเลิก" เพื่อกลับไปตรวจให้ครบก่อน'))return;
   const report={
@@ -1242,8 +1253,8 @@ function openReportDetail(id){
   let b='<div class="form-grid">'+
     '<div class="field"><label class="label">วันที่ตรวจสอบ</label><input type="date" class="input" id="rdDate" value="'+esc(r.date)+'"'+dis+'></div>'+
     '<div class="field"><label class="label">รอบการตรวจสอบ</label><select class="input" id="rdShift"'+dis+'>'+SHIFTS.map(s=>'<option value="'+esc(s)+'"'+(s===r.shift?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select></div></div>'+
-    '<div class="form-grid"><div class="field"><label class="label">เวลาเริ่มตรวจ</label><input type="time" class="input" id="rdStart" value="'+esc(r.inspectStart||'')+'"'+dis+'></div>'+
-    '<div class="field"><label class="label">ตรวจเสร็จเวลา</label><input type="time" class="input" id="rdEnd" value="'+esc(r.inspectEnd||'')+'"'+dis+'></div></div>'+
+    '<div class="form-grid"><div class="field"><label class="label">เวลาเริ่มตรวจ</label><input type="text" class="input time24" id="rdStart" inputmode="numeric" maxlength="5" placeholder="HH:MM" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" value="'+esc(r.inspectStart||'')+'"'+dis+'></div>'+
+    '<div class="field"><label class="label">ตรวจเสร็จเวลา</label><input type="text" class="input time24" id="rdEnd" inputmode="numeric" maxlength="5" placeholder="HH:MM" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" value="'+esc(r.inspectEnd||'')+'"'+dis+'></div></div>'+
     '<div class="field"><label class="label">ชื่อเจ้าหน้าที่ผู้ตรวจสอบ</label><select class="input" id="rdOfficer"'+dis+'>'+
       [r.officer].concat((data.officers||[]).filter(n=>n!==r.officer)).map(n=>'<option value="'+esc(n)+'"'+(n===r.officer?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'+
     '<div class="sumbar" style="margin:6px 0 14px;grid-template-columns:repeat(3,1fr)">'+
@@ -1272,6 +1283,7 @@ function openReportDetail(id){
   if(can('delete_report'))foot='<button class="btn danger" onclick="deleteReport('+r.id+',true)">ลบรายงาน</button>'+foot;
   if(editable)foot+='<button class="btn primary" id="rdSaveBtn" onclick="saveReportDetail()">บันทึกการแก้ไข</button>';
   $('rdFoot').innerHTML=foot;
+  bindTime24($('reportDetailModal'));
   $('reportDetailModal').classList.add('open');
 }
 function closeReportDetail(){$('reportDetailModal').classList.remove('open');detailId=0;}
@@ -1280,10 +1292,11 @@ async function saveReportDetail(){
   if(!detailId)return;
   const date=$('rdDate').value,shift=$('rdShift').value,officer=$('rdOfficer').value;
   if(!date||!shift||!officer)return toast('กรอกวันที่ รอบ และผู้ตรวจให้ครบ',true);
+  let rdStartValue,rdEndValue;try{rdStartValue=timeInputValue('rdStart');rdEndValue=timeInputValue('rdEnd');}catch(e){return;}
   const kiosks=readKiosks('rdKioskBody'),st=readinessStats(kiosks,KIOSK_COUNT);
   $('rdSaveBtn').disabled=true;
   const upd={report_date:date,shift,officer,
-    inspect_start:($('rdStart')&&$('rdStart').value||'').trim()||null,inspect_end:($('rdEnd')&&$('rdEnd').value||'').trim()||null,
+    inspect_start:rdStartValue||null,inspect_end:rdEndValue||null,
     web_pc_ready:!!$('rdWebPc').checked,web_pc_remark:($('rdWebPcRemark').value||'').trim()||null,
     web_mobile_ready:!!$('rdWebMobile').checked,web_mobile_remark:($('rdWebMobileRemark').value||'').trim()||null,
     issue_log:($('rdIssue').value||'').trim()||null,
@@ -1343,7 +1356,7 @@ async function renderUsers(){
   let reqs=[];try{const {data:rq}=await sb.from('access_requests').select('*').eq('status','pending').order('created_at',{ascending:false});reqs=rq||[];}catch(e){}
   const reqPanel='<div class="panel" style="margin-top:16px"><div class="panel-title">คำขอลงทะเบียน (รออนุมัติ) ('+reqs.length+')</div><div class="mini" style="margin-bottom:8px">อนุมัติ = กำหนดสิทธิ์ + เปิดให้เข้าใช้งาน · ปฏิเสธ = ลบบัญชีคำขอ</div>'+
     (reqs.length?'<div class="table-wrap"><table><thead><tr><th>อีเมล</th><th>ชื่อ-นามสกุล</th><th>เหตุผล</th><th>วันที่ขอ</th><th>อนุมัติเป็น</th><th></th></tr></thead><tbody>'+
-      reqs.map(q=>{const uid=(users.find(u=>u.email===q.email)||{}).id||'';return '<tr><td><b>'+esc(q.email)+'</b></td><td>'+esc(q.full_name||'-')+'</td><td>'+esc(q.reason||'-')+'</td><td class="nowrap">'+esc(q.created_at?new Date(q.created_at).toLocaleString('th-TH'):'-')+'</td><td><select class="input" id="rqrole'+q.id+'" style="min-height:34px;width:auto;padding:4px 10px"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></td><td class="nowrap"><button class="btn primary sm" onclick="approveRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">อนุมัติ</button> <button class="btn danger sm" onclick="rejectRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">ปฏิเสธ</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">ไม่มีคำขอรออนุมัติ</div>')+'</div>';
+      reqs.map(q=>{const uid=(users.find(u=>u.email===q.email)||{}).id||'';return '<tr><td><b>'+esc(q.email)+'</b></td><td>'+esc(q.full_name||'-')+'</td><td>'+esc(q.reason||'-')+'</td><td class="nowrap">'+esc(q.created_at?fmtDateTime24(q.created_at,true):'-')+'</td><td><select class="input" id="rqrole'+q.id+'" style="min-height:34px;width:auto;padding:4px 10px"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></td><td class="nowrap"><button class="btn primary sm" onclick="approveRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">อนุมัติ</button> <button class="btn danger sm" onclick="rejectRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">ปฏิเสธ</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">ไม่มีคำขอรออนุมัติ</div>')+'</div>';
   const roleSel=(id,rr)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===rr?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชี + กำหนดสิทธิ์</div></div></div>'+
@@ -1351,7 +1364,7 @@ async function renderUsers(){
     '<div style="display:flex;gap:10px;align-items:flex-end;margin-top:12px"><div class="field" style="margin:0"><label class="label">สิทธิ์</label><select class="input" id="nuRole" style="width:auto"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn primary" onclick="addUser()">+ เพิ่มผู้ใช้</button></div></div>'+
     reqPanel+
     '<div class="panel" style="margin-top:16px"><div class="panel-title">ผู้ใช้ทั้งหมด ('+users.length+')</div><div class="mini" style="margin-bottom:8px">แก้ "ชื่อที่แสดง" แล้วคลิกออกจากช่อง = บันทึกอัตโนมัติ</div><div class="table-wrap"><table><thead><tr><th>Email</th><th>ชื่อที่แสดง</th><th>สิทธิ์</th><th>เข้าระบบล่าสุด</th><th></th></tr></thead><tbody>'+
-    (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td><input class="input" style="min-height:32px;width:180px" value="'+esc(pmap[u.email]||'')+'" placeholder="เช่น นางสาวณัฏฐา ..." onchange="setDisplayName(\''+js(u.email)+'\',this.value)"></td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('th-TH'):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ไม่มีผู้ใช้</td></tr>')+
+    (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td><input class="input" style="min-height:32px;width:180px" value="'+esc(pmap[u.email]||'')+'" placeholder="เช่น นางสาวณัฏฐา ..." onchange="setDisplayName(\''+js(u.email)+'\',this.value)"></td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?fmtDateTime24(u.last_sign_in_at,true):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ไม่มีผู้ใช้</td></tr>')+
     '</tbody></table></div></div>';
 }
 async function addUser(){
@@ -1394,7 +1407,7 @@ async function renderAudit(){
   const v2=rows.filter(r=>!f||((r.actor||'')+' '+(r.action||'')+' '+(r.entity||'')+' '+(r.detail||'')).toLowerCase().includes(f));
   $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ใช้ การกระทำ หรือรายละเอียด"><button class="btn" onclick="filter=\'\';renderAudit()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด</span></div>'+
     '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>ส่วน</th><th>รายละเอียด</th></tr></thead><tbody>'+
-    (v2.map(r=>'<tr><td class="nowrap">'+esc(new Date(r.created_at).toLocaleString('th-TH'))+'</td><td>'+esc(r.actor||'-')+'</td><td><span class="tag neutral">'+esc(actMap[r.action]||r.action)+'</span></td><td>'+esc(r.entity||'-')+'</td><td class="comment">'+esc(r.detail||'-')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ยังไม่มีบันทึก</td></tr>')+
+    (v2.map(r=>'<tr><td class="nowrap">'+esc(fmtDateTime24(r.created_at,true))+'</td><td>'+esc(r.actor||'-')+'</td><td><span class="tag neutral">'+esc(actMap[r.action]||r.action)+'</span></td><td>'+esc(r.entity||'-')+'</td><td class="comment">'+esc(r.detail||'-')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ยังไม่มีบันทึก</td></tr>')+
     '</tbody></table></div>';
 }
 function renderPerms(){
@@ -1536,7 +1549,7 @@ async function buildSingleReportDocxBlob(r){
   kv.push(['ตรวจครบทุกรายการ', rst.itemsWait>0?('ยังไม่ได้ตรวจ '+rst.itemsWait+' รายการ ('+rst.per.filter(p=>p.wait).map(p=>p.l+' '+p.wait).join(' · ')+')'):(TL.completeAt?(TL.completeAt+' น.'+(TL.crossedMidnight?' (วันถัดไป)':'')):'—')]);
   if(TL.pendingNow===0&&TL.totalMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.totalMin)]);
   else if(TL.firstPassMin!=null)kv.push(['ระยะเวลาในการตรวจ', fmtDur(TL.firstPassMin)]);
-  kv.push(['จัดทำเมื่อ',new Date().toLocaleString('th-TH')]);
+  kv.push(['จัดทำเมื่อ',fmtDateTime24(new Date(),true)]);
   body+=dKvTable(kv,3200,6800);
   // การ์ดแถวที่ 1 — % รายหัวข้อ (ตัวหาร = เครื่องที่ตรวจหัวข้อนั้นได้) + ภาพรวมเครื่อง
   body+=dKpiCards(rst.per.map(p=>[p.l,(p.pct==null?'—':p.pct+'%'),p.ok+' / '+p.checked+' ที่ตรวจได้'+(p.wait?('  ·  ⏳'+p.wait):''),
@@ -1683,7 +1696,7 @@ async function buildReportDocxBlob(start,end,word,label){
   let body=dLogoHeaderXml(logos);
   body+=dPar('รายงานการตรวจสอบระบบ TDAC (Website + Kiosk) '+word+' '+label,{sz:34,bold:true,color:'111827',align:'center',after:60});
   body+=dPar('Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)',{sz:20,color:'374151',align:'center',after:200});
-  body+=dTable([['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO-TDAC Operational Report (Supabase)']],[2600,6400],'F2F7FF',{headerAlign:null});
+  body+=dTable([['รอบรายงาน',label],['วันที่จัดทำ',fmtDateTime24(now,true)],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO-TDAC Operational Report (Supabase)']],[2600,6400],'F2F7FF',{headerAlign:null});
   body+=dHeading('สรุปภาพรวม (Dashboard Summary)');
   body+=dKpiCards([['จำนวนรายงาน',String(s.total),'รอบ'],['Readiness เฉลี่ย',(s.avgReadiness||0)+'%','ทุกรอบ'],['Web PC พร้อม',(s.webPcPct||0)+'%','ของรอบ'],['Web Mobile พร้อม',(s.webMobilePct||0)+'%','ของรอบ']]);
   body+=speedSummaryDocx(reports);
@@ -1738,7 +1751,7 @@ function buildReportInner(start,end,word,label){
   const reports=periodReports(start,end),s=summarize(reports),bars=problemBars(reports);
   const tbl=(head,rows,cols)=>'<table><thead><tr>'+head.map((h,i)=>'<th'+(cols&&cols[i]?' style="width:'+cols[i]+'"':'')+'>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="'+head.length+'" style="text-align:center;color:#888">ไม่มีข้อมูล</td></tr>')+'</tbody></table>';
   let h='<h1>รายงานการตรวจสอบระบบ TDAC (Website + Kiosk) '+esc(word)+' '+esc(label)+'</h1><p class="sub">Onsite Support Officer · ท่าอากาศยานสุวรรณภูมิ (BKK)</p>';
-  h+='<table class="meta"><tbody><tr><th>รอบรายงาน</th><td>'+esc(label)+'</td></tr><tr><th>วันที่จัดทำ</th><td>'+esc(new Date().toLocaleString('th-TH'))+'</td></tr><tr><th>จัดทำโดย</th><td>'+esc(user.displayName||user.email)+'</td></tr></tbody></table>';
+  h+='<table class="meta"><tbody><tr><th>รอบรายงาน</th><td>'+esc(label)+'</td></tr><tr><th>วันที่จัดทำ</th><td>'+esc(fmtDateTime24(new Date(),true))+'</td></tr><tr><th>จัดทำโดย</th><td>'+esc(user.displayName||user.email)+'</td></tr></tbody></table>';
   h+='<h2>สรุปภาพรวม</h2><div class="kpis"><div class="kpi"><div class="n">'+s.total+'</div><div>จำนวนรายงาน</div></div><div class="kpi"><div class="n">'+(s.avgReadiness||0)+'%</div><div>Readiness เฉลี่ย</div></div><div class="kpi"><div class="n">'+(s.webPcPct||0)+'%</div><div>Web PC พร้อม</div></div><div class="kpi"><div class="n">'+(s.webMobilePct||0)+'%</div><div>Web Mobile พร้อม</div></div></div>';
   if(bars.length){const url=chartCanvas(bars).toDataURL('image/png');h+='<h2>จำนวนครั้ง Not Ready รายเครื่อง</h2><div style="text-align:center"><img src="'+url+'" style="max-width:660px;width:100%;border:1px solid #e2e8f0;border-radius:8px"></div>';}
   h+='<h2>เครื่อง Kiosk ที่ต้องติดตาม</h2>'+tbl(['ลำดับ','Kiosk ID','Not Ready','Readiness','ระบบที่ล้มบ่อย'],(s.problem||[]).map((x,i)=>[i+1,esc(x.id),x.notReady+' / '+x.checks,(x.pct==null?'-':x.pct+'%'),esc(topFail(x.fail))]),['8%','22%','22%','18%','30%']);
