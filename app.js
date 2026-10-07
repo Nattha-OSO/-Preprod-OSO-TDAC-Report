@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='47';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='48';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -177,7 +177,7 @@ function kioskRowsHtml(){
       '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="ผู้โดยสารกำลังใช้เครื่องนี้ → ระบบติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ เหลือ RustDesk เป็น ⏳ (ตรวจไม่ได้)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
-    '</div><fieldset class="speed-fields"><legend>Network speed test Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'</fieldset></td>'+
+    '</div><fieldset class="speed-fields"><legend>Network speed test Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'<div class="speed-note" aria-live="polite"></div></fieldset></td>'+
     '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
 /* ============================================================
@@ -574,11 +574,18 @@ function togglePax(btn){
   if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 function setPax(body,id,on){const b=body.querySelector('.btn-pax[data-kiosk="'+id+'"]');if(b)b.dataset.state=on?'on':'';}
+function syncSpeedAvailability(body,id,inUse){
+  const box=body.querySelector('tr[data-row="'+id+'"] .speed-fields');if(!box)return;
+  box.classList.toggle('speed-disabled',inUse);
+  box.querySelectorAll('[data-speed]').forEach(e=>{e.disabled=inUse;if(inUse)e.value='';});
+  const note=box.querySelector('.speed-note');if(note)note.textContent=inUse?'ผู้โดยสารใช้งานอยู่ — ไม่ต้องทดสอบความเร็ว':'';
+}
 function syncRowBtn(body,id){
   const chips=subChips(body,id),btn=body.querySelector('.btn-all[data-kiosk="'+id+'"]');
   const allOk=chips.every(b=>b&&b.dataset.state==='ok'),anyWait=chips.some(b=>b&&b.dataset.state==='wait'),anyNo=chips.some(b=>b&&b.dataset.state==='no');
   // ตรวจครบทุกหัวข้อแล้ว → ล้างสถานะ "ผู้โดยสารใช้งานอยู่" อัตโนมัติ
   const pb=body.querySelector('.btn-pax[data-kiosk="'+id+'"]');if(pb&&!anyWait)pb.dataset.state='';
+  syncSpeedAvailability(body,id,!!pb&&pb.dataset.state==='on');
   if(btn){btn.classList.toggle('all-checked',allOk);btn.textContent=allOk?'✔ All Ready':'Check All';}
   const tr=body.querySelector('tr[data-row="'+id+'"]');
   if(tr){tr.classList.toggle('ready',allOk);tr.classList.toggle('wait',!allOk&&anyWait&&!anyNo);tr.classList.toggle('pax',!!pb&&pb.dataset.state==='on');}

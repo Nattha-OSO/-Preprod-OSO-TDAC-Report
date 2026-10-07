@@ -125,6 +125,9 @@
   .ktable .kid{font-weight:800;color:var(--navy);white-space:nowrap}
   .checks{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
   .speed-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 0;padding:10px;border:1px solid #c7dbf2;border-radius:10px;background:#f3f8ff;min-width:0}
+  .speed-note{grid-column:1/-1;font-size:12px;color:#64748b}
+  .speed-disabled{background:#f1f5f9;border-color:#cbd5e1;color:#64748b}
+  .speed-fields.speed-disabled input{background:#e2e8f0;color:#64748b;cursor:not-allowed}
   .speed-fields legend{font-size:12px;font-weight:700;color:var(--navy);padding:0 4px}
   .speed-fields label{font-size:12px;color:var(--navy);min-width:0}
   .speed-fields input{display:block;width:100%;min-height:46px;margin-top:5px;border:1px solid var(--line2);border-radius:8px;padding:8px;font-size:16px;background:#fff;box-sizing:border-box}
@@ -668,7 +671,7 @@
 <script src="config.js?v=45"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=47"></script>
-<script src="speed-dashboard.js?v=47"></script>
+<script src="app.js?v=48"></script>
+<script src="speed-dashboard.js?v=48"></script>
 </body>
 </html>
