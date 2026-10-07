@@ -117,13 +117,13 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.ok(xml.includes('ยังไม่ได้ตรวจ RustDesk — ผู้โดยสารใช้งานอยู่'), 'status text');
   assert.equal(xml.split('— ผู้โดยสารใช้งานอยู่').length - 1, 1, 'label only on IMM007');
   assert.ok(xml.includes('ผู้โดยสารกำลังทำรายการ'), 'inspector text kept in Remark');
-  // ---- เวอร์ชันระบบ 2026.10.00 แสดงครบทุกจุด ----
-  assert.equal(vm.runInContext('APP_RELEASE', context), '2026.10.00');
+  // ---- เวอร์ชันระบบ 2026.10.01 แสดงครบทุกจุด ----
+  assert.equal(vm.runInContext('APP_RELEASE', context), '2026.10.01');
   assert.ok(/^\d{4}\.\d{2}\.\d{2}$/.test(vm.runInContext('APP_RELEASE', context)), 'release format YYYY.MM.NN');
-  assert.ok(!xml.includes('เวอร์ชันระบบ') && !xml.includes('2026.10.00'), 'no version row in DOCX report');
+  assert.ok(!xml.includes('เวอร์ชันระบบ') && !xml.includes('2026.10.01'), 'no version row in DOCX report');
   const pageHtml = fs.readFileSync(__dirname + '/index.html', 'utf8');
   assert.equal((pageHtml.match(/data-release/g) || []).length, 2, 'public + login labels');
-  assert.ok(fs.readFileSync(__dirname + '/guide.html', 'utf8').includes('เวอร์ชัน 2026.10.00'), 'guide footer');
+  assert.ok(fs.readFileSync(__dirname + '/guide.html', 'utf8').includes('เวอร์ชัน 2026.10.01'), 'guide footer');
   // ---- บังคับระบุ ตม. ประจำจุดครบ 4 โซนก่อนส่ง ----
   const missingImmZones = vm.runInContext('missingImmZones', context);
   const Yes = 'มีเจ้าหน้าที่ ตม. ประจำจุด', No = 'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด';
@@ -133,6 +133,10 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.deepEqual(Array.from(missingImmZones(allK(zi => (zi % 2 ? No : Yes))), x => x.i), [], 'yes/no in every zone → can submit');
   assert.deepEqual(Array.from(missingImmZones(allK((zi, i) => (zi === 2 && i === 0 ? Yes : zi === 2 ? No : Yes))), x => x.i), [2], 'mixed zone counts as not chosen');
   assert.deepEqual(Array.from(missingImmZones(allK(() => 'หมายเหตุอย่างเดียว')), x => x.i), [0, 1, 2, 3], 'free-text remark does not count');
+  const appSrc = fs.readFileSync(__dirname + '/app.js', 'utf8'), guideSrc = fs.readFileSync(__dirname + '/guide.html', 'utf8');
+  for (const t of ['Network speed test Wi-Fi: AOT TDAC', 'Dashboard ทดสอบความเร็ว', 'System หรือ Network เป็น ✘', 'ผู้โดยสารใช้งานอยู่', '24 ชั่วโมง']) assert.ok(appSrc.includes(t), 'in-app help: ' + t);
+  assert.ok(!appSrc.includes('เมื่อ checkbox ใดยังไม่ติ๊ก'), 'old Not Ready help removed');
+  assert.ok(guideSrc.includes('เวอร์ชัน 2026.10.01') && guideSrc.includes('24 ชั่วโมง'), 'guide release note');
   // ---- ตารางในรายงาน: แถวไม่ถูกตัดข้ามหน้า + ตารางโซนย้ายไปเริ่มหน้าใหม่ได้ทั้งก้อนเมื่อใส่ไม่พอ ----
   if (process.env.DUMP_XML) fs.writeFileSync(process.env.DUMP_XML, xml);
   const tables = xml.split('<w:tbl>').slice(1).map(x => x.split('</w:tbl>')[0]);
