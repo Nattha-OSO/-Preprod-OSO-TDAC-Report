@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='44';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='45';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -177,7 +177,7 @@ function kioskRowsHtml(){
       '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="ผู้โดยสารกำลังใช้เครื่องนี้ → ระบบติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ เหลือ RustDesk เป็น ⏳ (ตรวจไม่ได้)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
-    '</div><fieldset class="speed-fields"><legend>Network · Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'</fieldset></td>'+
+    '</div><fieldset class="speed-fields"><legend>Network speed test Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'</fieldset></td>'+
     '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
 /* ============================================================
