@@ -13,5 +13,13 @@ vm.runInContext('buildSingleReportDocxBlob',c)({kiosks,total:20,date:'2026-10-07
   assert.equal(remarkOf('IMM001'),'หมายเหตุปกติ','plain remark unchanged');
   assert.ok(remarkOf('IMM002').includes('- [Wi-Fi AOT TDAC | Download 120.50 Mbps | Upload 40.00 Mbps]'),'speed result still shown');
   assert.ok(!xml.includes('<w:t xml:space="preserve">—</w:t>')||!remarkOf('IMM003').includes('—'),'no em dash in kiosk remark');
-  console.log('PASS report remark: single "-" when no speed data');
+  const dashParas=[...xml.matchAll(/<w:p>(?:(?!<\/w:p>).)*?<w:t xml:space="preserve">-<\/w:t>(?:(?!<\/w:p>).)*?<\/w:p>/gs)].map(m=>m[0]);
+  assert.ok(dashParas.length>=17,'placeholder dash present for empty remarks: '+dashParas.length);
+  assert.ok(dashParas.every(x=>x.includes('<w:jc w:val="center"/>')),'placeholder "-" is centered');
+  c.sampleRows=[{kiosks:[{kiosk_id:'IMM001',remark:'\n- [Wi-Fi AOT TDAC | Download 100 Mbps | Upload 20 Mbps]'}]}];
+  const speedXml=vm.runInContext('speedSummaryDocx(sampleRows)',c);
+  const tbl=speedXml.slice(speedXml.indexOf('<w:tbl>'),speedXml.indexOf('</w:tbl>'));
+  const paras=[...tbl.matchAll(/<w:p>.*?<\/w:p>/gs)].map(m=>m[0]);
+  assert.ok(paras.length>=30&&paras.every(x=>x.includes('<w:jc w:val="center"/>')),'every cell of the speed summary table is centered (headers + body)');
+  console.log('PASS report remark: single "-" when no speed data, centered; speed table fully centered');
 }).catch(e=>{console.error(e);process.exitCode=1});

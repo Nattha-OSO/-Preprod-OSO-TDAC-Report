@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='53';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='54';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.01';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -1617,7 +1617,7 @@ async function buildSingleReportDocxBlob(r){
     const pics=(k.remark_photos||[]).filter(Boolean);
     for(let i=0;i<pics.length;i++)
       cell+=await embedPhoto(pics[i],KPHOTO_PX,{before:i?40:(txt?60:20),after:i===pics.length-1?20:40});
-    krows.push([idText,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('-',{sz:20,color:'1f2937'})}]);
+    krows.push([idText,mark('system'),mark('rustdesk'),mark('network'),status,{xml:cell||dCellPar('-',{sz:20,color:'1f2937',align:'center'})}]);
     }
     if(krows.length)body+=dTable([['Kiosk','System','RustDesk','Network','สถานะ','Remark (หมายเหตุ + ภาพถ่าย)']].concat(krows),KW,null,{vAlign:'top',center:[0,1,2,3],keepTogether:true});   // ตารางโซนใส่หน้าเดียวไม่พอ → ย้ายทั้งตารางไปเริ่มหน้าใหม่
   }
