@@ -19,8 +19,11 @@ vm.runInContext('buildSingleReportDocxBlob',c)({kiosks,total:20,date:'2026-10-07
   c.sampleRows=[{kiosks:[{kiosk_id:'IMM001',remark:'\n- [Wi-Fi AOT TDAC | Download 100 Mbps | Upload 20 Mbps]'}]}];
   const speedXml=vm.runInContext('speedSummaryDocx(sampleRows)',c);
   const tbl=speedXml.slice(speedXml.indexOf('<w:tbl>'),speedXml.indexOf('</w:tbl>'));
-  const paras=[...tbl.matchAll(/<w:p>.*?<\/w:p>/gs)].map(m=>m[0]);
-  assert.ok(paras.length>=30&&paras.every(x=>x.includes('<w:jc w:val="center"/>')),'every cell of the speed summary table is centered (headers + body)');
+  const speedRows=[...tbl.matchAll(/<w:tr>.*?<\/w:tr>/gs)].map(r=>[...r[0].matchAll(/<w:tc>.*?<\/w:tc>/gs)].map(t=>t[0]));
+  assert.equal(speedRows.length,6,'header + 4 zones + total');
+  assert.ok(speedRows[0].every(x=>x.includes('<w:jc w:val="center"/>')),'speed header centered');
+  for(const r of speedRows.slice(1,5)){assert.ok(!r[0].includes('<w:jc w:val="center"/>'),'zone name left-aligned');assert.ok(r.slice(1).every(x=>x.includes('<w:jc w:val="center"/>')),'speed values centered');}
+  assert.ok(speedRows[5].every(x=>x.includes('<w:jc w:val="center"/>')),'total row centered');
   const webAt=xml.indexOf('Website / Mobile Checklist');
   const webTbl=xml.slice(xml.indexOf('<w:tbl>',webAt),xml.indexOf('</w:tbl>',webAt));
   const webRemark=[...webTbl.matchAll(/<w:tr>.*?<\/w:tr>/gs)].slice(1).map(r=>[...r[0].matchAll(/<w:tc>.*?<\/w:tc>/gs)].pop()[0]);

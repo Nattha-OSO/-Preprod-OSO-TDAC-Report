@@ -11,14 +11,19 @@ function speedStats(reports){
   const calc=arr=>{const mean=t=>{const v=arr.map(x=>x[t]).filter(x=>x!==null);return {count:v.length,avg:v.length?v.reduce((a,b)=>a+b,0)/v.length:null};};return {download:mean('download'),upload:mean('upload'),count:arr.length};};
   return {samples,all:calc(samples),zones:ZONES.map((z,i)=>Object.assign({title:z.title},calc(samples.filter(x=>x.zone===i))))};
 }
-function speedFmt(v){return v===null?'—':v.toFixed(2);}
+function speedFmt(v){return v===null?'-':v.toFixed(2);}
+// "3 เครื่อง" when Download/Upload sample counts match; otherwise show both so the difference is never hidden.
+function speedCountText(d,u){return d===u?d+' เครื่อง':'Download '+d+' / Upload '+u+' เครื่อง';}
 function speedSummaryDocx(reports){
-  const s=speedStats(reports),items=[Object.assign({title:'รวมทุกโซน'},s.all),...s.zones];
+  const s=speedStats(reports),total=s.all;
   let body=dHeading('Network speed test Wi-Fi: AOT TDAC',{keepNext:true});
   body+=dPar('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง หน่วย Mbps • ช่องว่างไม่นับเป็น 0 • Download/Upload นับจำนวนตัวอย่างแยกกัน',{sz:18,keepNext:true,after:80});
-  const total=s.all;
-  body+=dPar('จำนวนเครื่องที่ทดสอบ Download '+total.download.count+' เครื่อง • จำนวนเครื่องที่ทดสอบ Upload '+total.upload.count+' เครื่อง',{sz:20,bold:true,color:'0b2f6b',keepNext:true,after:80});
-  body+=dTable([['โซน','Download เฉลี่ย (Mbps)','จำนวนเครื่องที่ทดสอบ Download','Upload เฉลี่ย (Mbps)','จำนวนเครื่องที่ทดสอบ Upload'],...items.map(x=>[x.title,speedFmt(x.download.avg),x.download.count+' เครื่อง',speedFmt(x.upload.avg),x.upload.count+' เครื่อง'])],[2400,2100,1900,2100,1900],null,{keepTogether:true,center:'all'});
+  const d=total.download.count,u=total.upload.count;
+  body+=dPar(d===u?'จำนวนเครื่องที่ทดสอบ Download และ Upload '+d+' เครื่อง':'จำนวนเครื่องที่ทดสอบ Download '+d+' เครื่อง • Upload '+u+' เครื่อง',{sz:20,bold:true,color:'0b2f6b',keepNext:true,after:80});
+  const row=x=>[x.title,speedFmt(x.download.avg),speedFmt(x.upload.avg),speedCountText(x.download.count,x.upload.count)];
+  // Zones first (name left-aligned, values centered); overall total last, bold and centered.
+  const totalRow=row(Object.assign({title:'รวมทุกโซน'},total)).map(t=>({xml:dCellPar(t,{sz:20,bold:true,color:'0b2f6b',align:'center'})}));
+  body+=dTable([['โซน','Download เฉลี่ย (Mbps)','Upload เฉลี่ย (Mbps)','จำนวนเครื่องที่ทดสอบ Download/Upload'],...s.zones.map(row),totalRow],[3000,2000,2200,2800],null,{keepTogether:true,center:[1,2,3]});
   return body;
 }
 function selectedSpeedReports(){return (data.reports||[]).filter(r=>(!speedFrom||r.date>=speedFrom)&&(!speedTo||r.date<=speedTo));}
