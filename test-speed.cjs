@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const c={window:{},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
+const c={window:{addEventListener(){}},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
 const html=vm.runInContext('kioskRowsHtml()',c);
 assert.equal((html.match(/data-speed="download"/g)||[]).length,20);
 assert.equal((html.match(/data-speed="upload"/g)||[]).length,20);

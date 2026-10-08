@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const c={window:{},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);
+const c={window:{addEventListener(){}},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);
 vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);vm.runInContext(fs.readFileSync(__dirname+'/speed-dashboard.js','utf8'),c);
 c.getLogoBytes=async()=>null;
 c.JSZip=class{constructor(){this.docs={}}file(n,x){if(n==='document.xml')c.__xml=x;return this}folder(){return this}async generateAsync(){return c.__xml}};

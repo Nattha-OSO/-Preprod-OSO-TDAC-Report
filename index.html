@@ -369,6 +369,7 @@
 
         <!-- resume draft bar (localStorage) -->
         <div id="pubResumeBar" class="resume-bar" style="display:none"></div>
+        <div id="pubEditBar" class="resume-bar" style="display:none;background:#fff7e6;border-color:#fcd34d;color:#92400e"></div>
 
         <!-- header -->
         <div class="card">
@@ -481,9 +482,22 @@
         <div class="big">&#10003;</div>
         <h2>บันทึกรายงานเรียบร้อย</h2>
         <p class="pub-hint">ขอบคุณ ข้อมูลการตรวจสอบของท่านถูกบันทึกลงระบบแล้ว<br><span class="mini">หากมีรายการที่ยังเป็น ⏳ (ยังไม่ได้ตรวจ) สามารถเปิดรายงานเดิมเพื่ออัปเดตผลตรวจได้ (ไม่เกิดรายงานซ้ำ)</span></p>
+        <div id="pubEditLinkBox" style="display:none;margin:16px auto 0;max-width:560px;text-align:left;background:#f1f6ff;border:1px solid #c7dbf2;border-radius:12px;padding:12px 14px">
+          <div style="font-weight:700;color:var(--navy);font-size:14px">✏️ ลิงก์แก้ไขรายงานนี้ (เปิดได้จากทุกเครื่อง)</div>
+          <div class="mini" style="margin:4px 0 8px;line-height:1.6">อยู่ในอีเมลรายงานด้วย · ใช้ได้ถึง <b id="pubEditLinkExp"></b> · ห้ามส่งต่อให้ผู้อื่น</div>
+          <div style="display:flex;gap:8px"><input id="pubEditLinkInput" class="input" readonly style="font-size:12px;min-height:40px"><button type="button" class="btn" onclick="copyEditLink()" style="min-height:40px">คัดลอก</button></div>
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px">
           <button class="btn" onclick="editThisRound()" style="min-height:46px">↩ แก้/ตรวจเพิ่มรอบนี้</button>
           <button class="btn primary" onclick="resetPublic()" style="min-height:46px">+ ทำรายงานรอบถัดไป</button>
+        </div>
+      </div>
+      <div id="pubEditInvalid" class="pub-thanks hidden">
+        <div class="big" style="background:#fee2e2;color:#b91c1c">!</div>
+        <h2>ลิงก์แก้ไขใช้ไม่ได้</h2>
+        <p class="pub-hint" id="pubEditInvalidMsg">ลิงก์ไม่ถูกต้องหรือหมดอายุ (ลิงก์มีอายุ 7 วัน)<br><span class="mini">ถ้าต้องแก้ไขรายงานเดิม ให้ส่งรายงานรอบนั้นใหม่ด้วยวันที่ รอบ และผู้ตรวจเดิม หรือแจ้งผู้ดูแลระบบให้แก้ไขให้</span></p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px">
+          <button class="btn primary" onclick="leaveInvalidEdit()" style="min-height:46px">+ ไปหน้าส่งรายงานใหม่</button>
         </div>
       </div>
     </div>
@@ -668,10 +682,10 @@
 <input type="file" id="camFallback" accept="image/*" capture="environment" hidden onchange="handleCamFallback(this)">
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=56"></script>
+<script src="config.js?v=57"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=56"></script>
-<script src="speed-dashboard.js?v=56"></script>
+<script src="app.js?v=57"></script>
+<script src="speed-dashboard.js?v=57"></script>
 </body>
 </html>

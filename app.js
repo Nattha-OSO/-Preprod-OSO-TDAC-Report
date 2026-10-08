@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='56';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='57';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.01';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -27,6 +27,7 @@ const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มี
 // ---------- globals ----------
 let user=null, data={reports:[],officers:[],summary:{}};
 let view='dashboard', filter='', detailId=0;
+let editCtx=null, lastEditLink='', lastEditExpires='';   // โหมดแก้ไขรายงานจากลิงก์ในอีเมล
 const LOADING='<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
 
 // ---------- helpers ----------
@@ -82,16 +83,19 @@ function regPassStrength(){
 }
 function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
-function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();loadPublicOfficers().then(restoreDraftAfterLoad).catch(()=>restoreDraftAfterLoad());}
+function showPublic(){hideAll();if($('pubEditInvalid'))$('pubEditInvalid').classList.add('hidden');$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();loadPublicOfficers().then(restoreDraftAfterLoad).catch(()=>restoreDraftAfterLoad());}
 
 window.onload=async function(){
   showReleaseLabels();
   if(!sb){showPublic();initPublicForm();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){sessionStorage.setItem('pw_recovery','1');showResetPw();}});
   if(sessionStorage.getItem('pw_recovery')==='1'||String(location.hash).indexOf('type=recovery')>=0){sessionStorage.setItem('pw_recovery','1');showResetPw();return;}
+  const editHash=parseEditHash(location.hash);
+  if(editHash){await startEditMode(editHash);return;}
   try{const {data:s}=await sb.auth.getSession();if(s&&s.session){enterApp(s.session.user);}else showPublic();}
   catch(e){showPublic();}
 };
+window.addEventListener('hashchange',()=>{const e=parseEditHash(location.hash);if(e&&(!editCtx||editCtx.id!==e.id||editCtx.token!==e.token))location.reload();});
 
 // ---------- การอนุมัติ + บทบาท ----------
 function setUser(u){const r=(u&&u.app_metadata&&u.app_metadata.role)||'senior';user={email:u.email,role:r,isAdmin:r==='admin',displayName:u.email,username:u.email};}
@@ -424,6 +428,7 @@ function initPublicForm(){
 // กู้ข้อมูลที่กรอกค้างไว้อัตโนมัติเมื่อเปิด/รีเฟรชหน้า — กันข้อมูลหายตอนเผลอกดรีเฟรชระหว่างตรวจ
 // เว้นช่อง "ตรวจเสร็จเวลา" (pubEnd) ให้กรอกใหม่ทุกครั้ง เพราะเป็นเวลาที่ตรวจจบจริง
 function restoreDraftAfterLoad(){
+  if(editCtx)return;
   const d=readDraft();if(!draftHasProgress(d))return;
   applyDraft(d);
   if($('pubEnd'))$('pubEnd').value='';
@@ -432,8 +437,9 @@ function restoreDraftAfterLoad(){
 /* ---------- ร่างในเครื่อง (localStorage) — ให้ผู้บันทึกกลับมากรอกต่อ/ตรวจซ้ำรายการเดิมได้ ----------
    ใช้ได้เพราะเป็นคนเดิม+เบราว์เซอร์เดิม: จำสถานะฟอร์มไว้ ปิด/เปิดใหม่แล้ว "ทำต่อ" ได้ */
 const DRAFT_KEY='tdac_draft_v1';let draftT;
-function scheduleDraftSave(){hideResumeBar();clearTimeout(draftT);draftT=setTimeout(saveDraft,400);}
+function scheduleDraftSave(){if(editCtx)return;hideResumeBar();clearTimeout(draftT);draftT=setTimeout(saveDraft,400);}
 function saveDraft(){
+  if(editCtx)return;
   try{
     if(!$('pubKioskBody')||!$('pubKioskBody').children.length)return;
     const d={v:APP_VERSION,savedAt:new Date().toISOString(),
@@ -512,7 +518,7 @@ function clearPrevShift(){
   toast('เคลียร์ข้อมูลก่อนหน้าแล้ว — เริ่มกรอกรอบใหม่ได้เลย');
 }
 // จากหน้าขอบคุณ: กลับไปแก้/ตรวจเพิ่มรอบเดิม (โหลดข้อมูลที่เพิ่งส่ง กลับมาแก้ แล้วส่งซ้ำ = อัปเดตรายการเดิม)
-function editThisRound(){const d=readDraft();$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';if(d)applyDraft(d);hideResumeBar();window.scrollTo(0,0);}
+function editThisRound(){if(editCtx){$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';window.scrollTo(0,0);return;}const d=readDraft();$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';if(d)applyDraft(d);hideResumeBar();window.scrollTo(0,0);}
 // ---------- ปฏิทินกำหนดเอง (แสดง DD/MM/YYYY ทุกเบราว์เซอร์) ----------
 const CAL_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
 let calView=new Date(),calSel=null;
@@ -836,8 +842,17 @@ async function submitPublic(){
   };
   const btn=$('pubSubmit');btn.disabled=true;
   // ส่งทั้ง report + report_kiosks แบบ atomic ผ่านฟังก์ชัน SECURITY DEFINER (anon)
-  const {error}=await sb.rpc('submit_tdac_report',{payload:report});
+  let rpcRes=null,error=null;
+  if(editCtx){
+    ({data:rpcRes,error}=await sb.rpc('update_tdac_report_by_token',{p_id:editCtx.id,p_token:editCtx.token,payload:report}));
+  }else{
+    ({data:rpcRes,error}=await sb.rpc('submit_tdac_report_v2',{payload:report}));
+    if(error&&isMissingRpc(error)){({error}=await sb.rpc('submit_tdac_report',{payload:report}));rpcRes=null;}   // ยังไม่ได้รัน migration-edit-link.sql → ส่งแบบเดิม ไม่มีลิงก์แก้ไข
+  }
   if(error){btn.disabled=false;return toast('ส่งไม่สำเร็จ: '+error.message,true);}
+  if(editCtx){lastEditLink=buildEditLink(editCtx.id,editCtx.token);lastEditExpires=(rpcRes&&rpcRes.expires)||lastEditExpires;}
+  else if(rpcRes&&rpcRes.token){lastEditLink=buildEditLink(rpcRes.id,rpcRes.token);lastEditExpires=rpcRes.expires||'';}
+  else{lastEditLink='';lastEditExpires='';}
   // สร้าง PDF (A4) แล้วส่งอีเมลให้เจ้าหน้าที่ OSO อัตโนมัติ — ถ้าล้มเหลวรายงานก็ถูกบันทึกแล้ว
   if(email){
     const disp={date,shift,officer,kiosks,webPc:report.web_pc_ready,webPcRemark:report.web_pc_remark,
@@ -851,7 +866,7 @@ async function submitPublic(){
       if(b64){
         const msg='เรียน '+officer+'\n\nแนบไฟล์รายงานการตรวจสอบระบบ TDAC ประจำ '+dispDate(date)+' รอบ '+shift+
           '\nความพร้อม (Readiness): '+pct+'%  ('+ready+'/'+KIOSK_COUNT+' เครื่องพร้อมใช้งาน)'+
-          '\n\nระบบ OSO-TDAC Operational Report';
+          editLinkText()+'\n\nระบบ OSO-TDAC Operational Report';
         // ชื่อไฟล์: DDMMYYYY + _1 (รอบกลางวัน IMP/D) หรือ _2 (รอบกลางคืน IMP/N)
         const da=date.split('-');const fn=da[2]+da[1]+da[0]+(shift.indexOf('IMP/D')>=0?'_1':'_2')+'-OSO-TDAC-Report.docx';
         // ส่งไบต์ DOCX ผ่านพารามิเตอร์ pdfBase64 เดิม — edge function แนบไฟล์ตามชื่อ .docx ให้เอง (ไม่ต้อง redeploy)
@@ -862,11 +877,90 @@ async function submitPublic(){
     }catch(e){toast('บันทึกรายงานแล้ว แต่สร้าง/ส่งไฟล์ไม่สำเร็จ: '+((e&&e.message)||e),true);}
   }
   btn.disabled=false;btn.innerHTML='✓ ส่งรายงานการตรวจสอบ';
+  renderEditLinkBox();
   saveDraft();   // เก็บสถานะที่เพิ่งส่งไว้ในเครื่อง — ผู้บันทึกกด"แก้รอบนี้"กลับมาตรวจซ้ำแล้วส่งทับได้
   $('pubForm').style.display='none';$('pubThanks').classList.remove('hidden');window.scrollTo(0,0);
 }
+/* ============================================================
+   ลิงก์แก้ไขรายงาน (อยู่ในอีเมล): #edit=<id>.<โทเค็น 64 ตัวอักษร hex>
+   เปิดรายงานเดิมกลับมาแก้ได้จากทุกเครื่อง · โทเค็นอยู่หลัง # (ไม่ถูกส่งไปเซิร์ฟเวอร์/ไม่ติด Referer)
+   ฝั่งฐานข้อมูลเก็บเฉพาะแฮช อายุ 7 วัน และแก้ วันที่/รอบ/ผู้ตรวจ ไม่ได้ — ดู migration-edit-link.sql
+   ============================================================ */
+function parseEditHash(h){const m=/^#edit=(\d{1,15})\.([0-9a-f]{64})$/.exec(String(h||''));return m?{id:Number(m[1]),token:m[2]}:null;}
+function buildEditLink(id,token){return String(location.href).split('#')[0]+'#edit='+id+'.'+token;}
+// ฐานข้อมูลยังไม่ได้รัน migration-edit-link.sql → ฟังก์ชันใหม่ไม่มี → ให้ทำงานแบบเดิม
+function isMissingRpc(e){return !!e&&(e.code==='PGRST202'||e.code==='42883'||/could not find the function/i.test(e.message||''));}
+// แปลงผลจากฐานข้อมูลให้เป็นรูปเดียวกับ "ร่างในเครื่อง" เพื่อใช้ applyDraft/setKiosks ตัวเดิม
+function editDraftFrom(res){
+  const r=(res&&res.report)||{};
+  return {date:r.report_date||'',shift:r.shift||'',officer:r.officer||'',email:'',issue:r.issue_log||'',
+    inspectStart:r.inspect_start||'',inspectEnd:r.inspect_end||'',
+    webPc:!!r.web_pc_ready,webPcRemark:r.web_pc_remark||'',webMobile:!!r.web_mobile_ready,webMobileRemark:r.web_mobile_remark||'',
+    issuePhotos:r.issue_photos||[],webPcPhotos:r.web_pc_photos||[],webMobilePhotos:r.web_mobile_photos||[],kiosks:(res&&res.kiosks)||[]};
+}
+function editLinkText(){
+  return lastEditLink?'\n\n✏️ ต้องการแก้ไข/เพิ่มข้อมูลรายงานนี้ ให้เปิดลิงก์ด้านล่าง (เปิดได้จากทุกเครื่อง ใช้ได้ถึง '+fmtDateTime24(lastEditExpires)+' — ห้ามส่งต่อลิงก์ให้ผู้อื่น)\n'+lastEditLink:'';
+}
+function lockEditFields(on){
+  ['pubShift','pubOfficer'].forEach(id=>{const e=$(id);if(e)e.disabled=on;});
+  const b=$('pubDateBtn');if(b){b.disabled=on;b.style.opacity=on?'.6':'';}
+  const c=$('pubClearBtn');if(c)c.style.display=on?'none':'';
+}
+function showEditBar(d){
+  const bar=$('pubEditBar');if(!bar)return;
+  bar.innerHTML='<span>✏️ กำลังแก้ไขรายงานเดิม — '+esc(dispDate(d.date))+' · '+esc(d.shift)+' · '+esc(d.officer)+' · ลิงก์ใช้ได้ถึง '+esc(fmtDateTime24(lastEditExpires))+' (วันที่/รอบ/ผู้ตรวจแก้ไม่ได้)</span>'+
+    '<span class="resume-actions"><button type="button" class="btn" onclick="leaveEditMode()">เริ่มรายงานใหม่</button></span>';
+  bar.style.display='flex';
+}
+function showEditInvalid(msg){
+  $('pubForm').style.display='none';$('pubThanks').classList.add('hidden');
+  if(msg&&$('pubEditInvalidMsg'))$('pubEditInvalidMsg').textContent=msg;
+  $('pubEditInvalid').classList.remove('hidden');
+}
+async function startEditMode(ec){
+  editCtx=ec;   // ตั้งก่อนทุกอย่าง เพื่อปิดการบันทึก/กู้ "ร่างในเครื่อง" ระหว่างแก้รายงานเดิม
+  hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').style.display='flex';initPublicForm();
+  const {data,error}=await sb.rpc('get_tdac_report_for_edit',{p_id:ec.id,p_token:ec.token});
+  if(error||!data||!data.report){
+    editCtx=null;
+    return showEditInvalid(isMissingRpc(error)?'ระบบยังไม่เปิดใช้ลิงก์แก้ไข กรุณาแจ้งผู้ดูแลระบบ':'');
+  }
+  await loadPublicOfficers();
+  const d=editDraftFrom(data),sel=$('pubOfficer');
+  if(sel&&d.officer&&!Array.from(sel.options).some(o=>o.value===d.officer))sel.insertAdjacentHTML('beforeend','<option value="'+esc(d.officer)+'">'+esc(d.officer)+'</option>');
+  applyDraft(d);
+  if($('pubEmail'))$('pubEmail').value=officerEmailMap[d.officer]||'';   // ส่ง DOCX ใหม่ไปที่อีเมลที่ลงทะเบียนของผู้ตรวจเท่านั้น
+  lastEditExpires=data.expires||'';
+  lockEditFields(true);showEditBar(d);
+  const s=$('pubSubmit');if(s)s.innerHTML='✓ บันทึกการแก้ไขรายงาน';
+}
+function exitEditMode(){
+  editCtx=null;lastEditLink='';lastEditExpires='';lockEditFields(false);
+  const b=$('pubEditBar');if(b)b.style.display='none';
+  const s=$('pubSubmit');if(s)s.innerHTML='✓ ส่งรายงานการตรวจสอบ';
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
+  loadPublicOfficers();
+}
+function leaveEditMode(){
+  if(!confirm('ออกจากการแก้ไข แล้วเริ่มรายงานใหม่?\n(รายงานเดิมที่บันทึกไว้แล้วไม่ถูกลบ)'))return;
+  resetPublic();
+}
+function leaveInvalidEdit(){
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
+  $('pubEditInvalid').classList.add('hidden');resetPublic();
+}
+function renderEditLinkBox(){
+  const b=$('pubEditLinkBox');if(!b)return;
+  if(!lastEditLink){b.style.display='none';return;}
+  $('pubEditLinkInput').value=lastEditLink;$('pubEditLinkExp').textContent=fmtDateTime24(lastEditExpires);b.style.display='block';
+}
+async function copyEditLink(){
+  const v=lastEditLink;if(!v)return;
+  try{await navigator.clipboard.writeText(v);}catch(e){const i=$('pubEditLinkInput');i.select();try{document.execCommand('copy');}catch(_){}}
+  toast('คัดลอกลิงก์แก้ไขแล้ว');
+}
 function resetPublic(){
-  clearDraft();   // เริ่มรอบใหม่ = ล้างร่างเดิม
+  if(editCtx)exitEditMode();else clearDraft();   // เริ่มรอบใหม่ = ล้างร่างเดิม (ออกจากโหมดแก้ไขไม่ลบร่างอื่นในเครื่อง)
   $('pubShift').value='';$('pubOfficer').value='';$('pubEmail').value='';$('pubIssue').value='';$('pubIssueCount').textContent='0';
   if($('pubStart'))$('pubStart').value='';if($('pubEnd'))$('pubEnd').value='';
   $('pubWebPc').checked=false;$('pubWebMobile').checked=false;$('lblWebPc').classList.remove('on');$('lblWebMobile').classList.remove('on');
@@ -1184,7 +1278,8 @@ function renderHelp(){
       '<b>Website/Mobile</b> — เปิด tdac.immigration.go.th บน PC และ Mobile แล้วติ๊ก System Ready',
       'กรอก <b>ปัญหา/ข้อเสนอแนะ</b> จากเจ้าหน้าที่ ตม. (ถ้ามี) และแนบรูปได้สูงสุด 3 รูปต่อช่อง',
       'ที่การ์ด <b>เวลาที่ตรวจสอบเสร็จ</b> พิมพ์เวลาแบบ 24 ชั่วโมง (HH:MM) หรือกด <b>ใช้เวลาปัจจุบัน</b>',
-      'กด <b>ส่งรายงานการตรวจสอบ</b> → แถบสรุปด้านบนแสดง Readiness แบบ real-time'
+      'กด <b>ส่งรายงานการตรวจสอบ</b> → แถบสรุปด้านบนแสดง Readiness แบบ real-time',
+      'ต้องการแก้/เพิ่มข้อมูลภายหลัง → เปิด <b>ลิงก์แก้ไขรายงาน</b> ท้ายอีเมล (ใช้ได้ 7 วัน เปิดได้จากทุกเครื่อง · วันที่/รอบ/ผู้ตรวจแก้ไม่ได้ · ห้ามส่งต่อ) <b>อย่าพิมพ์เพิ่มในไฟล์ DOCX</b> เพราะไม่เข้าระบบ'
     ])+'<div class="mini" style="margin-top:8px">หมายเหตุ: เครื่องเป็น <b>Not Ready</b> เมื่อ <b>System หรือ Network เป็น ✘</b> เท่านั้น · <b>RustDesk ✘ ไม่ถือว่าเครื่องไม่พร้อม</b> แต่นับ % RustDesk แยก · ⏳ ยังไม่ได้ตรวจ ไม่ใช่เครื่องเสีย · ต้องใส่ Remark ทุกครั้งที่กด ✘</div>');
   h+=sec('B. สำหรับ Senior / Manager (หลังล็อกอิน)',
     'เมนูด้านซ้าย:'+ul([

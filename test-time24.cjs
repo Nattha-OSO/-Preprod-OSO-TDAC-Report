@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const c={window:{},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
+const c={window:{addEventListener(){}},document:{addEventListener(){}},setTimeout,clearTimeout};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/app.js','utf8'),c);
 const n=vm.runInContext('normalizeTime24',c);
 assert.equal(n('930'),'09:30');assert.equal(n('2205'),'22:05');assert.equal(n('9:5'),'09:05');assert.equal(n('22:00'),'22:00');assert.equal(n('00:00'),'00:00');
 assert.equal(n('24:00'),null);assert.equal(n('12:60'),null);assert.equal(n('10:00 PM'),null);assert.equal(n('12:30 AM'),null);assert.equal(n(''),'');assert.equal(n('abc'),null);

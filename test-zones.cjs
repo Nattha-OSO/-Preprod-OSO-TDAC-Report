@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(__dirname + '/app.js', 'utf8');
 const copy = ['app.js','index.html','guide.html'].map(name => fs.readFileSync(__dirname + '/' + name, 'utf8')).join('\n');
-const context = {window: {}, document: {addEventListener() {}}, setTimeout, clearTimeout};
+const context = {window:{addEventListener(){}}, document: {addEventListener() {}}, setTimeout, clearTimeout};
 vm.createContext(context);
 vm.runInContext(source, context);
 vm.runInContext(fs.readFileSync(__dirname + '/speed-dashboard.js', 'utf8'), context);
