@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='54';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='55';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.01';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -1630,7 +1630,7 @@ async function buildSingleReportDocxBlob(r){
     const ps=(paths||[]).filter(Boolean);
     for(let i=0;i<ps.length;i++)
       x+=await embedPhoto(ps[i],WPHOTO_PX,{before:i?40:(t?60:20),after:i===ps.length-1?20:40});
-    return {xml:x||dCellPar('—',{sz:20,color:'9aa7bd'})};
+    return {xml:x||dCellPar('-',{sz:20,color:'1f2937',align:'center'})};
   };
   body+=dTable([['Platform','System Ready','Remark (หมายเหตุ + ภาพถ่าย)'],
     ['Website (PC)',r.webPc?yes:no,await webCell(r.webPcRemark,r.web_pc_photos||r.webPcPhotos)],

@@ -21,5 +21,14 @@ vm.runInContext('buildSingleReportDocxBlob',c)({kiosks,total:20,date:'2026-10-07
   const tbl=speedXml.slice(speedXml.indexOf('<w:tbl>'),speedXml.indexOf('</w:tbl>'));
   const paras=[...tbl.matchAll(/<w:p>.*?<\/w:p>/gs)].map(m=>m[0]);
   assert.ok(paras.length>=30&&paras.every(x=>x.includes('<w:jc w:val="center"/>')),'every cell of the speed summary table is centered (headers + body)');
-  console.log('PASS report remark: single "-" when no speed data, centered; speed table fully centered');
+  const webAt=xml.indexOf('Website / Mobile Checklist');
+  const webTbl=xml.slice(xml.indexOf('<w:tbl>',webAt),xml.indexOf('</w:tbl>',webAt));
+  const webRemark=[...webTbl.matchAll(/<w:tr>.*?<\/w:tr>/gs)].slice(1).map(r=>[...r[0].matchAll(/<w:tc>.*?<\/w:tc>/gs)].pop()[0]);
+  assert.equal(webRemark.length,2,'PC and Mobile rows');
+  for(const cell of webRemark){
+    assert.ok(cell.includes('<w:t xml:space="preserve">-</w:t>'),'web remark uses single hyphen');
+    assert.ok(!cell.includes('—'),'no em dash in web remark');
+    assert.ok(cell.includes('<w:jc w:val="center"/>'),'web remark hyphen centered');
+  }
+  console.log('PASS report remark: single "-" when no speed data, centered (Kiosk + Website tables); speed table fully centered');
 }).catch(e=>{console.error(e);process.exitCode=1});
