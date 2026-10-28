@@ -7,7 +7,7 @@ const join=vm.runInContext('speedJoin',c),split=vm.runInContext('speedSplit',c);
 const r=split(join('ข้อความเดิม','IMM001', '123.45','67.89'));assert.deepEqual([r.text,r.profile,r.download,r.upload],['ข้อความเดิม','SIM Card / APK 1.0.6','123.45','67.89']);
 assert.ok(join('ข้อความเดิม','IMM001','123.45','67.89').includes('\n- [Network speed test | SIM Card / APK 1.0.6'));
 assert.ok(html.includes('Network speed test: SIM Card / APK 1.0.6'));
-assert.ok(html.includes('Network speed test: Wi-Fi AOT / APK 1.0.7'));
+assert.ok(html.includes('Network speed test: Wi-Fi AOT TDAC / APK 1.0.7'));
 assert.equal(join('ข้อความเดิม','IMM001','',''),'ข้อความเดิม');
 const legacy=split('ข้อความเดิม\n- [Wi-Fi AOT TDAC | Download 10 Mbps | Upload 20 Mbps]');assert.deepEqual([legacy.profile,legacy.download,legacy.upload],['Wi-Fi AOT TDAC','10','20']);
 console.log('PASS per-kiosk speed fields, profile remarks and legacy remarks');
