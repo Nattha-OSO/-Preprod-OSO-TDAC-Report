@@ -6,7 +6,7 @@ function speedStats(reports){
     const v=speedSplit(immSplit(k.remark).text),zone=ZONES.findIndex(z=>z.ids.includes(k.kiosk_id));
     const n=x=>x!==''&&Number.isFinite(Number(x))&&Number(x)>=0?Number(x):null;
     const download=n(v.download),upload=n(v.upload);
-    if(download!==null||upload!==null)samples.push({date:r.date||'',shift:r.shift||'',id:k.kiosk_id,zone,download,upload});
+    if(download!==null||upload!==null)samples.push({date:r.date||'',shift:r.shift||'',id:k.kiosk_id,profile:v.profile||speedProfile(k.kiosk_id),zone,download,upload});
   }));
   const calc=arr=>{const mean=t=>{const v=arr.map(x=>x[t]).filter(x=>x!==null);return {count:v.length,avg:v.length?v.reduce((a,b)=>a+b,0)/v.length:null};};return {download:mean('download'),upload:mean('upload'),count:arr.length};};
   return {samples,all:calc(samples),zones:ZONES.map((z,i)=>Object.assign({title:z.title},calc(samples.filter(x=>x.zone===i))))};
@@ -16,7 +16,7 @@ function speedFmt(v){return v===null?'-':v.toFixed(2);}
 function speedCountText(d,u){return d===u?d+' เครื่อง':'Download '+d+' / Upload '+u+' เครื่อง';}
 function speedSummaryDocx(reports){
   const s=speedStats(reports),total=s.all;
-  let body=dHeading('Network speed test Wi-Fi: AOT TDAC',{keepNext:true});
+  let body=dHeading('Network speed test: TDAC',{keepNext:true});
   body+=dPar('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง หน่วย Mbps • ช่องว่างไม่นับเป็น 0 • Download/Upload นับจำนวนตัวอย่างแยกกัน',{sz:18,keepNext:true,after:80});
   const d=total.download.count,u=total.upload.count;
   body+=dPar(d===u?'จำนวนเครื่องที่ทดสอบ Download และ Upload '+d+' เครื่อง':'จำนวนเครื่องที่ทดสอบ Download '+d+' เครื่อง • Upload '+u+' เครื่อง',{sz:20,bold:true,color:'0b2f6b',keepNext:true,after:80});
@@ -32,13 +32,13 @@ function applySpeedFilter(){speedFrom=$('speedFrom').value;speedTo=$('speedTo').
 function renderSpeedDashboard(){
   if(!user||!user.isAdmin)return toast('เฉพาะ Admin เท่านั้น',true);
   const s=speedStats(selectedSpeedReports());
-  $('content').innerHTML='<div class="panel" style="padding:16px"><h2>Network speed test Wi-Fi: AOT TDAC</h2><div class="form-grid"><label>ตั้งแต่<input class="input" type="date" id="speedFrom" value="'+esc(speedFrom)+'"></label><label>ถึง<input class="input" type="date" id="speedTo" value="'+esc(speedTo)+'"></label></div><button class="btn" onclick="applySpeedFilter()">กรองช่วงวันที่</button> <button class="btn primary" onclick="exportSpeedDocx()">สรุปรายงาน DOCX</button><p class="mini">ค่าเฉลี่ยถ่วงตามจำนวนผลทดสอบที่กรอกจริง ไม่ใช่ค่าเฉลี่ยของค่าเฉลี่ยโซน • ช่องว่างไม่นับเป็น 0 • หน่วย Mbps</p><div class="sumbar">'+[Object.assign({title:'รวมทุกโซน'},s.all),...s.zones].map(speedCardHtml).join('')+'</div><div class="table-wrap"><table><thead><tr><th>วันที่ / รอบ</th><th>Kiosk</th><th>โซน</th><th>Download (Mbps)</th><th>Upload (Mbps)</th></tr></thead><tbody>'+s.samples.map(x=>'<tr><td>'+esc(x.date)+' / '+esc(x.shift)+'</td><td>'+esc(x.id)+'</td><td>'+esc(ZONES[x.zone]?.title||'ไม่ระบุ')+'</td><td>'+speedFmt(x.download)+'</td><td>'+speedFmt(x.upload)+'</td></tr>').join('')+'</tbody></table></div>'+(s.samples.length?'':'<p>ยังไม่มีผลทดสอบความเร็วในช่วงนี้</p>')+'</div>';
+  $('content').innerHTML='<div class="panel" style="padding:16px"><h2>Network speed test: TDAC</h2><div class="form-grid"><label>ตั้งแต่<input class="input" type="date" id="speedFrom" value="'+esc(speedFrom)+'"></label><label>ถึง<input class="input" type="date" id="speedTo" value="'+esc(speedTo)+'"></label></div><button class="btn" onclick="applySpeedFilter()">กรองช่วงวันที่</button> <button class="btn primary" onclick="exportSpeedDocx()">สรุปรายงาน DOCX</button><p class="mini">ค่าเฉลี่ยถ่วงตามจำนวนผลทดสอบที่กรอกจริง ไม่ใช่ค่าเฉลี่ยของค่าเฉลี่ยโซน • ช่องว่างไม่นับเป็น 0 • หน่วย Mbps</p><div class="sumbar">'+[Object.assign({title:'รวมทุกโซน'},s.all),...s.zones].map(speedCardHtml).join('')+'</div><div class="table-wrap"><table><thead><tr><th>วันที่ / รอบ</th><th>Kiosk</th><th>เครือข่าย / APK</th><th>โซน</th><th>Download (Mbps)</th><th>Upload (Mbps)</th></tr></thead><tbody>'+s.samples.map(x=>'<tr><td>'+esc(x.date)+' / '+esc(x.shift)+'</td><td>'+esc(x.id)+'</td><td>'+esc(x.profile)+'</td><td>'+esc(ZONES[x.zone]?.title||'ไม่ระบุ')+'</td><td>'+speedFmt(x.download)+'</td><td>'+speedFmt(x.upload)+'</td></tr>').join('')+'</tbody></table></div>'+(s.samples.length?'':'<p>ยังไม่มีผลทดสอบความเร็วในช่วงนี้</p>')+'</div>';
 }
 async function exportSpeedDocx(){
   if(!user||!user.isAdmin)return toast('เฉพาะ Admin เท่านั้น',true);
   await ensureFresh();
   const reports=selectedSpeedReports(),s=speedStats(reports);
-  const body=dPar('รายงานสรุป Network speed test Wi-Fi: AOT TDAC',{sz:30,bold:true})+dPar('ช่วงวันที่: '+(speedFrom||'ทั้งหมด')+' ถึง '+(speedTo||'ทั้งหมด'))+speedSummaryDocx(reports)+dHeading('ผลทดสอบรายเครื่อง')+dTable([['วันที่ / รอบ','Kiosk','Download (Mbps)','Upload (Mbps)'],...s.samples.map(x=>[x.date+' / '+x.shift,x.id,speedFmt(x.download),speedFmt(x.upload)])],[3600,2000,2200,2200]);
+  const body=dPar('รายงานสรุป Network speed test: TDAC',{sz:30,bold:true})+dPar('ช่วงวันที่: '+(speedFrom||'ทั้งหมด')+' ถึง '+(speedTo||'ทั้งหมด'))+speedSummaryDocx(reports)+dHeading('ผลทดสอบรายเครื่อง')+dTable([['วันที่ / รอบ','Kiosk','เครือข่าย / APK','Download (Mbps)','Upload (Mbps)'],...s.samples.map(x=>[x.date+' / '+x.shift,x.id,x.profile,speedFmt(x.download),speedFmt(x.upload)])],[2800,1500,2600,1800,1800]);
   const zip=new JSZip();
   zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
   zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');

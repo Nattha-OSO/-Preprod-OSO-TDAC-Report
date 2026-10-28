@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='58';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='59';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.02';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -22,6 +22,13 @@ const IMM_LABEL={'':'👮 ตม. ประจำจุด? (ต้องเล�
 const IMM_REMARK={'yes':'มีเจ้าหน้าที่ ตม. ประจำจุด','no':'ไม่มีเจ้าหน้าที่ ตม. ประจำจุด'};
 // เครื่องที่ยังมีหัวข้อ ⏳ เพราะมีผู้โดยสารใช้งานอยู่ — เก็บเป็นบรรทัดในหมายเหตุ (ไม่ต้องเพิ่มคอลัมน์ฐานข้อมูล)
 const PAX_REMARK='ผู้โดยสารใช้งานอยู่';
+// รายละเอียดการเชื่อมต่อ/เวอร์ชัน APK ที่บันทึกพร้อมผลทดสอบความเร็วรายเครื่อง
+const SPEED_PROFILES={
+  IMM001:'SIM Card / APK 1.0.6',IMM002:'SIM Card / APK 1.0.7',IMM003:'Wi-Fi AOT / APK 1.0.7',
+  IMM011:'SIM Card / APK 1.0.6',IMM012:'SIM Card / APK 1.0.7',IMM013:'Wi-Fi AOT / APK 1.0.7'
+};
+const SPEED_PROFILE_DEFAULT='Wi-Fi AOT TDAC';
+function speedProfile(id){return SPEED_PROFILES[id]||SPEED_PROFILE_DEFAULT;}
 const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
@@ -191,7 +198,7 @@ function kioskRowsHtml(){
       '<button type="button" class="btn-pax" data-kiosk="'+id+'" data-state="" onclick="togglePax(this)" title="ผู้โดยสารกำลังใช้เครื่องนี้ → ระบบติ๊ก System และ Network เป็น ✓ ให้อัตโนมัติ เหลือ RustDesk เป็น ⏳ (ตรวจไม่ได้)">🧍 ผู้โดยสารใช้งานอยู่</button>'+
       '<input type="hidden" class="imm-val" data-kiosk="'+id+'" value="">'+
       '<input type="hidden" class="recheck-val" data-kiosk="'+id+'" data-type="recheck">'+
-    '</div><fieldset class="speed-fields"><legend>Network speed test Wi-Fi: AOT TDAC</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'<div class="speed-note" aria-live="polite"></div></fieldset></td>'+
+    '</div><fieldset class="speed-fields"><legend>Network speed test: '+speedProfile(id)+'</legend>'+['download','upload'].map(t=>'<label>'+(t==='download'?'↓ Download':'↑ Upload')+' (Mbps)<input type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-kiosk="'+id+'" data-speed="'+t+'" placeholder="ยังไม่ทดสอบ" oninput="scheduleDraftSave()"></label>').join('')+'<div class="speed-note" aria-live="polite"></div></fieldset></td>'+
     '<td><textarea class="remark-input" data-kiosk="'+id+'" data-type="remark" maxlength="200" placeholder="ใส่รายละเอียด (จำเป็นหากยังไม่พร้อม)" oninput="autoGrow(this);this.classList.remove(\'invalidf\')"></textarea><div class="photo-box" data-kiosk="'+id+'"></div></td></tr>').join('')).join('');
 }
 /* ============================================================
@@ -615,14 +622,14 @@ function kioskCheckAll(btn){
   syncRowBtn(body,id);if(body.id==='pubKioskBody'){updatePubSummary();scheduleDraftSave();}
 }
 // ponytail: speed results stored in the existing remark, avoiding a database migration; use dedicated columns if analytics need them.
-function speedJoin(text,download,upload){
+function speedJoin(text,id,download,upload){
   const valid=v=>v===''||(/^\d+(\.\d{1,2})?$/.test(v)&&Number(v)<=100000);
   if(!valid(download)||!valid(upload))throw new Error('ความเร็วต้องเป็นตัวเลข 0–100000 Mbps ทศนิยมไม่เกิน 2 ตำแหน่ง');
-  return text+((download||upload)?'\n- [Wi-Fi AOT TDAC | Download '+(download||'—')+' Mbps | Upload '+(upload||'—')+' Mbps]':'');
+  return text+((download||upload)?'\n- [Network speed test | '+speedProfile(id)+' | Download '+(download||'—')+' Mbps | Upload '+(upload||'—')+' Mbps]':'');
 }
 function speedSplit(text){
-  const s=String(text||''),m=/(?:^|\n)(?:- )?\[Wi-Fi AOT TDAC \| Download ([\d.]+|—) Mbps \| Upload ([\d.]+|—) Mbps\]$/.exec(s);
-  return m?{text:s.slice(0,m.index),download:m[1]==='—'?'':m[1],upload:m[2]==='—'?'':m[2]}:{text:s,download:'',upload:''};
+  const s=String(text||''),m=/(?:^|\n)(?:- )?\[(?:Network speed test \| ([^\]|]+) \||Wi-Fi AOT TDAC \|) Download ([\d.]+|—) Mbps \| Upload ([\d.]+|—) Mbps\]$/.exec(s);
+  return m?{text:s.slice(0,m.index),profile:m[1]||SPEED_PROFILE_DEFAULT,download:m[2]==='—'?'':m[2],upload:m[3]==='—'?'':m[3]}:{text:s,profile:'',download:'',upload:''};
 }
 function speedInput(body,id,t){return body.querySelector('input[data-kiosk="'+id+'"][data-speed="'+t+'"]');}
 function validateSpeedFields(body){
@@ -642,7 +649,7 @@ function readKiosks(bodyId){
       system_ready:st('system')==='ok',rustdesk_ready:st('rustdesk')==='ok',network_ready:st('network')==='ok',
       occupied:wait.length===SUBSYS.length,   // คงคอลัมน์เดิมไว้: ⏳ ครบทุกหัวข้อ = ยังไม่ได้ตรวจเครื่องนี้เลย
       recheck_at:(rc&&rc.value.trim())||null,recheck_items:wait,
-      remark:immJoin(imm,speedJoin(rem,(speedInput(body,id,'download')||{}).value||'',(speedInput(body,id,'upload')||{}).value||''),pax)||null,remark_photos:(photoState[id]||[]).slice()};
+      remark:immJoin(imm,speedJoin(rem,id,(speedInput(body,id,'download')||{}).value||'',(speedInput(body,id,'upload')||{}).value||''),pax)||null,remark_photos:(photoState[id]||[]).slice()};
   });
 }
 function setKiosks(bodyId,arr){
@@ -1274,7 +1281,7 @@ function renderHelp(){
       'เลือก <b>วันที่</b>, <b>รอบ</b> (IMP/D 10:00 หรือ IMP/N 22:00) และ <b>ชื่อผู้ตรวจสอบ</b>',
       '<b>Kiosk Checklist (4 โซน)</b> — ขออนุญาต ตม. ก่อน แล้วตรวจ System / RustDesk / Network ของ IMM001–IMM020 ตามโซน และ <b>ต้องเลือก "มี/ไม่มี ตม. ประจำจุด" ให้ครบทั้ง 4 โซน</b> จึงส่งรายงานได้ (กด <b>Check All</b> เมื่อพร้อมครบ 3 รายการ)',
       'ถ้าผู้โดยสารกำลังใช้เครื่อง กดปุ่ม <b>🧍 ผู้โดยสารใช้งานอยู่</b> ระบบติ๊ก System และ Network ให้ เหลือ RustDesk เป็น ⏳ และช่องทดสอบความเร็วของเครื่องนั้นเป็นสีเทา ไม่ต้องทดสอบ',
-      'กรอก <b>Network speed test Wi-Fi: AOT TDAC</b> ของแต่ละ Kiosk ที่ทดสอบได้จริง (Download / Upload หน่วย Mbps) — ช่องว่างหมายถึงยังไม่ทดสอบ ไม่นับเป็น 0',
+      'กรอก <b>Network speed test</b> ของแต่ละ Kiosk ที่ทดสอบได้จริง (Download / Upload หน่วย Mbps) — ระบบแสดงและบันทึกเครือข่าย/เวอร์ชัน APK ตามเครื่องใน Remark · ช่องว่างหมายถึงยังไม่ทดสอบ ไม่นับเป็น 0',
       '<b>Website/Mobile</b> — เปิด tdac.immigration.go.th บน PC และ Mobile แล้วติ๊ก System Ready',
       'กรอก <b>ปัญหา/ข้อเสนอแนะ</b> จากเจ้าหน้าที่ ตม. (ถ้ามี) และแนบรูปได้สูงสุด 3 รูปต่อช่อง',
       'ที่การ์ด <b>เวลาที่ตรวจสอบเสร็จ</b> พิมพ์เวลาแบบ 24 ชั่วโมง (HH:MM) หรือกด <b>ใช้เวลาปัจจุบัน</b>',
@@ -1300,7 +1307,7 @@ function renderHelp(){
     ]));
   h+=sec('D. รายงานและการส่งออก',
     ul([
-      '<b>รายงาน DOCX</b> — เมนู Tools หรือปุ่มมุมขวาบน → เลือกรายวัน/รายเดือน/รายปี → ได้ไฟล์ Word: KPI + ตารางสรุปความเร็ว Wi-Fi AOT TDAC + กราฟ Not Ready รายเครื่อง + ตารางสรุป + บันทึกปัญหา · รายงานรอบแยกรายการ Kiosk ตามโซน',
+      '<b>รายงาน DOCX</b> — เมนู Tools หรือปุ่มมุมขวาบน → เลือกรายวัน/รายเดือน/รายปี → ได้ไฟล์ Word: KPI + ตารางสรุปความเร็วเครือข่าย TDAC + กราฟ Not Ready รายเครื่อง + ตารางสรุป + บันทึกปัญหา · รายงานรอบแยกรายการ Kiosk ตามโซน',
       '<b>ส่งออก CSV</b> — ทุกรายงานเปิดใน Excel ได้',
       '<b>ส่งอีเมล (DOCX)</b> — ในหน้าต่างรายงาน กรอกอีเมลผู้รับ → ส่งแนบไฟล์ DOCX (ตั้งค่า Brevo ก่อน — ดู SEND-EMAIL.md)',
       '<b>ส่งอัตโนมัติทุกเดือน</b> — เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ" (admin) ดู AUTO-REPORT.md'
@@ -1707,7 +1714,7 @@ async function buildSingleReportDocxBlob(r){
     const idText=k.kiosk_id+(state==='mixed'?' (ตม. '+(sp.imm==='yes'?'มี':sp.imm==='no'?'ไม่มี':'ไม่ระบุ')+')':'');
     let cell='';
     const sv=speedSplit(sp.text);
-    const txt=speedJoin(sv.text,sv.download,sv.upload).trim();
+    const txt=speedJoin(sv.text,k.kiosk_id,sv.download,sv.upload).trim();
     if(txt)cell+=dCellPar(txt,{sz:20,color:'1f2937'});
     const pics=(k.remark_photos||[]).filter(Boolean);
     for(let i=0;i<pics.length;i++)

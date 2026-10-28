@@ -12,7 +12,7 @@ const parse=xml=>{
 c.same=[{kiosks:[k('IMM007','48','58'),k('IMM011','78','98'),k('IMM017','98','65'),{kiosk_id:'IMM001',remark:null}]}];
 let xml=vm.runInContext('speedSummaryDocx(same)',c);
 const heads=[...xml.matchAll(/<w:p>.*?<\/w:p>/gs)].map(m=>text(m[0])).filter(Boolean);
-assert.equal(heads[0],'Network speed test Wi-Fi: AOT TDAC','heading');
+assert.equal(heads[0],'Network speed test: TDAC','heading');
 assert.ok(heads[1].startsWith('ค่าเฉลี่ยจากผลทดสอบที่กรอกจริง'),'description line kept');
 assert.equal(heads[2],'จำนวนเครื่องที่ทดสอบ Download และ Upload 3 เครื่อง','combined count line when equal');
 let rows=parse(xml);

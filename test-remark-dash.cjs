@@ -11,7 +11,7 @@ vm.runInContext('buildSingleReportDocxBlob',c)({kiosks,total:20,date:'2026-10-07
   const remarkOf=id=>{const i=cells.findIndex(t=>t===id);return cells[i+5]};
   assert.equal(remarkOf('IMM003'),'-','no speed + no remark => single hyphen');
   assert.equal(remarkOf('IMM001'),'หมายเหตุปกติ','plain remark unchanged');
-  assert.ok(remarkOf('IMM002').includes('- [Wi-Fi AOT TDAC | Download 120.50 Mbps | Upload 40.00 Mbps]'),'speed result still shown');
+  assert.ok(remarkOf('IMM002').includes('- [Network speed test | SIM Card / APK 1.0.7 | Download 120.50 Mbps | Upload 40.00 Mbps]'),'speed result and current profile shown');
   assert.ok(!xml.includes('<w:t xml:space="preserve">—</w:t>')||!remarkOf('IMM003').includes('—'),'no em dash in kiosk remark');
   const dashParas=[...xml.matchAll(/<w:p>(?:(?!<\/w:p>).)*?<w:t xml:space="preserve">-<\/w:t>(?:(?!<\/w:p>).)*?<\/w:p>/gs)].map(m=>m[0]);
   assert.ok(dashParas.length>=17,'placeholder dash present for empty remarks: '+dashParas.length);

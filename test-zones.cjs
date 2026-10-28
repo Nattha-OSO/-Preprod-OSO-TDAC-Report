@@ -134,7 +134,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   assert.deepEqual(Array.from(missingImmZones(allK((zi, i) => (zi === 2 && i === 0 ? Yes : zi === 2 ? No : Yes))), x => x.i), [2], 'mixed zone counts as not chosen');
   assert.deepEqual(Array.from(missingImmZones(allK(() => 'หมายเหตุอย่างเดียว')), x => x.i), [0, 1, 2, 3], 'free-text remark does not count');
   const appSrc = fs.readFileSync(__dirname + '/app.js', 'utf8'), guideSrc = fs.readFileSync(__dirname + '/guide.html', 'utf8');
-  for (const t of ['Network speed test Wi-Fi: AOT TDAC', 'Dashboard ทดสอบความเร็ว', 'System หรือ Network เป็น ✘', 'ผู้โดยสารใช้งานอยู่', '24 ชั่วโมง']) assert.ok(appSrc.includes(t), 'in-app help: ' + t);
+  for (const t of ['Network speed test', 'เครือข่าย/เวอร์ชัน APK', 'Dashboard ทดสอบความเร็ว', 'System หรือ Network เป็น ✘', 'ผู้โดยสารใช้งานอยู่', '24 ชั่วโมง']) assert.ok(appSrc.includes(t), 'in-app help: ' + t);
   assert.ok(!appSrc.includes('เมื่อ checkbox ใดยังไม่ติ๊ก'), 'old Not Ready help removed');
   assert.ok(guideSrc.includes('เวอร์ชัน 2026.10.02') && guideSrc.includes('24 ชั่วโมง'), 'guide release note');
   // ---- ตารางในรายงาน: แถวไม่ถูกตัดข้ามหน้า + ตารางโซนย้ายไปเริ่มหน้าใหม่ได้ทั้งก้อนเมื่อใส่ไม่พอ ----
