@@ -7,6 +7,7 @@
 //    supabase secrets set BREVO_API_KEY="xkeysib-..." \
 //      SENDER_EMAIL="nattha.b@somapait.com" SENDER_NAME="OSO-TDAC Operational Report"
 // ============================================================
+import { APPROVED_ROLES, badAttachment, badLinks } from "../_shared/guard.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -29,6 +30,10 @@ Deno.serve(async (req) => {
     if (!token) return json({ error: "unauthorized" }, 401);
     const ures = await fetch(url + "/auth/v1/user", { headers: { Authorization: "Bearer " + token, apikey: anon } });
     if (!ures.ok) return json({ error: "unauthorized" }, 401);
+    // บัญชีที่ลงทะเบียนแต่ยังไม่อนุมัติก็ได้ JWT — ต้องเช็ก role ด้วย ไม่งั้นใช้ส่งเมลปลอมได้
+    const caller = await ures.json().catch(() => ({}));
+    const role = caller?.app_metadata?.role || "";
+    if (!APPROVED_ROLES.includes(role)) return json({ error: "forbidden: account not approved" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const { to, subject, filename, pdfBase64, message } = body;
@@ -39,6 +44,10 @@ Deno.serve(async (req) => {
     if (!to || !atts.length) return json({ error: "ต้องระบุอีเมลผู้รับและไฟล์แนบ" }, 400);
     const recipients = String(to).split(/[,;]/).map((s) => s.trim()).filter(Boolean);
     if (!recipients.length) return json({ error: "ไม่มีอีเมลผู้รับ" }, 400);
+    if (recipients.length > 20) return json({ error: "ผู้รับเกิน 20 คน" }, 400);
+    for (const a of atts) { const e = badAttachment(a.name, a.content); if (e) return json({ error: e }, 400); }
+    const le = badLinks(String(subject || "") + " " + String(message || ""), Deno.env.get("APP_URL"));
+    if (le) return json({ error: le }, 400);
 
     const apiKey = Deno.env.get("BREVO_API_KEY");
     const senderEmail = Deno.env.get("SENDER_EMAIL");

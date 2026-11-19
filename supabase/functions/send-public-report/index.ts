@@ -5,6 +5,7 @@
 //  Deploy:  supabase functions deploy send-public-report --no-verify-jwt
 //  ใช้ความลับชุดเดียวกับ send-report: BREVO_API_KEY, SENDER_EMAIL, SENDER_NAME
 // ============================================================
+import { badAttachment, badLinks } from "../_shared/guard.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -26,6 +27,12 @@ Deno.serve(async (req) => {
     const email = String(to || "").normalize("NFKC").replace(/[^\x21-\x7E]/g, "").toLowerCase();
     if (!RE_MAIL.test(email)) return json({ error: "อีเมลผู้รับไม่ถูกต้อง" }, 400);
     if (!pdfBase64) return json({ error: "ไม่มีไฟล์ PDF แนบ" }, 400);
+    const ae = badAttachment(filename, pdfBase64);
+    if (ae) return json({ error: ae }, 400);
+    const le = badLinks(String(subject || "") + " " + String(message || ""), Deno.env.get("APP_URL"));
+    if (le) return json({ error: le }, 400);
+    // หัวเรื่องต้องเป็นรายงานจริงเท่านั้น (กันใช้เป็นช่องส่งฟิชชิ่ง)
+    if (subject && !String(subject).startsWith("รายงานการตรวจสอบระบบ TDAC")) return json({ error: "หัวเรื่องไม่ถูกต้อง" }, 400);
 
     // ---- กันสแปม: อีเมลผู้รับต้องมีในทะเบียน officers.email ----
     const url = Deno.env.get("SUPABASE_URL")!;

@@ -68,7 +68,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
       const users = data.users.map((u) => ({
         id: u.id, email: u.email,
-        role: (u.app_metadata && (u.app_metadata as any).role) || "senior",
+        // ไม่มี role = ยังไม่อนุมัติ (เดิมแสดงเป็น senior ทำให้ดูเหมือนได้สิทธิ์แล้ว)
+        role: (u.app_metadata && (u.app_metadata as any).role) || "pending",
         created_at: u.created_at, last_sign_in_at: u.last_sign_in_at,
       }));
       return json({ users });

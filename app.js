@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='61';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='62';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.10.03';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -1463,7 +1463,7 @@ async function renderUsers(){
   const reqPanel='<div class="panel" style="margin-top:16px"><div class="panel-title">คำขอลงทะเบียน (รออนุมัติ) ('+reqs.length+')</div><div class="mini" style="margin-bottom:8px">อนุมัติ = กำหนดสิทธิ์ + เปิดให้เข้าใช้งาน · ปฏิเสธ = ลบบัญชีคำขอ</div>'+
     (reqs.length?'<div class="table-wrap"><table><thead><tr><th>อีเมล</th><th>ชื่อ-นามสกุล</th><th>เหตุผล</th><th>วันที่ขอ</th><th>อนุมัติเป็น</th><th></th></tr></thead><tbody>'+
       reqs.map(q=>{const uid=(users.find(u=>u.email===q.email)||{}).id||'';return '<tr><td><b>'+esc(q.email)+'</b></td><td>'+esc(q.full_name||'-')+'</td><td>'+esc(q.reason||'-')+'</td><td class="nowrap">'+esc(q.created_at?fmtDateTime24(q.created_at,true):'-')+'</td><td><select class="input" id="rqrole'+q.id+'" style="min-height:34px;width:auto;padding:4px 10px"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></td><td class="nowrap"><button class="btn primary sm" onclick="approveRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">อนุมัติ</button> <button class="btn danger sm" onclick="rejectRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">ปฏิเสธ</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">ไม่มีคำขอรออนุมัติ</div>')+'</div>';
-  const roleSel=(id,rr)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===rr?' selected':'')+'>'+x+'</option>').join('')+'</select>';
+  const roleSel=(id,rr)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+(rr==='pending'?'<option value="" selected disabled>pending (ยังไม่อนุมัติ)</option>':'')+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===rr?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชี + กำหนดสิทธิ์</div></div></div>'+
     '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><div style="position:relative"><input class="input" id="nuPass" type="password" placeholder="เช่น Onsite@2026" style="padding-right:46px"><button type="button" onclick="togglePass(\'nuPass\',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button></div></div></div>'+

@@ -55,6 +55,11 @@ Deno.serve(async (req) => {
     if (!password || String(password).length < 6) return json({ error: "รหัสผ่านอย่างน้อย 6 ตัวอักษร" }, 400);
     if (!full_name) return json({ error: "กรุณากรอกชื่อ-นามสกุล" }, 400);
 
+    // กันยิงลงทะเบียนรัว ๆ (เหตุการณ์จริง: 8 บัญชีใน 10 วินาที): เกิน 3 คำขอ/10 นาที = ปฏิเสธ
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count } = await admin.from("access_requests").select("id", { count: "exact", head: true }).gte("created_at", since);
+    if ((count || 0) >= 3) return json({ error: "มีคำขอลงทะเบียนมากเกินไป กรุณาลองใหม่ภายหลัง" }, 429);
+
     // สร้างบัญชีแบบยืนยันอีเมลแล้ว (ไม่ต้องส่งเมลยืนยัน) แต่ "ไม่มี role" = ยังเข้าระบบไม่ได้จนกว่าจะอนุมัติ
     const { data, error } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
