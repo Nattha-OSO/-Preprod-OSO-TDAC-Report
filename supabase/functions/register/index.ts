@@ -40,6 +40,10 @@ async function sendMail(to: string[], subject: string, text: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  // ปิดการลงทะเบียนด้วยตนเอง (ถูกใช้สร้างบัญชีปลอม) — admin สร้างบัญชีให้ที่เมนู "จัดการผู้ใช้ระบบ"
+  // ponytail: เปิดกลับได้โดยลบบรรทัดนี้ + คืนปุ่มใน index.html
+  return json({ error: "ปิดการลงทะเบียนด้วยตนเองแล้ว — ติดต่อผู้ดูแลระบบเพื่อขอบัญชี" }, 403);
+  // deno-lint-ignore no-unreachable
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
