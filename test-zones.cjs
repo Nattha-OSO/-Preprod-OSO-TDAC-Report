@@ -136,7 +136,7 @@ assert.ok(copy.includes('ยังไม่ได้ตรวจ'));
   const appSrc = fs.readFileSync(__dirname + '/app.js', 'utf8'), guideSrc = fs.readFileSync(__dirname + '/guide.html', 'utf8');
   for (const t of ['Network speed test', 'เครือข่าย/เวอร์ชัน APK', 'Dashboard ทดสอบความเร็ว', 'System หรือ Network เป็น ✘', 'ผู้โดยสารใช้งานอยู่', '24 ชั่วโมง']) assert.ok(appSrc.includes(t), 'in-app help: ' + t);
   assert.ok(!appSrc.includes('เมื่อ checkbox ใดยังไม่ติ๊ก'), 'old Not Ready help removed');
-  assert.ok(guideSrc.includes('เวอร์ชัน 2026.11.00') && guideSrc.includes('SIM Card / APK 1.0.6'), 'guide release note');
+  assert.ok(guideSrc.includes('เวอร์ชัน 2026.11.00') && guideSrc.includes('ทุกเครื่องใช้ APK 1.0.7'), 'guide release note');
   // ---- ตารางในรายงาน: แถวไม่ถูกตัดข้ามหน้า + ตารางโซนย้ายไปเริ่มหน้าใหม่ได้ทั้งก้อนเมื่อใส่ไม่พอ ----
   if (process.env.DUMP_XML) fs.writeFileSync(process.env.DUMP_XML, xml);
   const tables = xml.split('<w:tbl>').slice(1).map(x => x.split('</w:tbl>')[0]);
