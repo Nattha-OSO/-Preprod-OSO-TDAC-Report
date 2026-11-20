@@ -16,6 +16,7 @@ create table if not exists public.email_log (
   error      text
 );
 create index if not exists email_log_created_idx on public.email_log (created_at desc);
+alter table public.email_log add column if not exists provider_ref text;
 alter table public.email_log enable row level security;
 drop policy if exists "email_log admin read" on public.email_log;
 create policy "email_log admin read" on public.email_log for select to authenticated

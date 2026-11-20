@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='67';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='68';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.11.01';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -879,7 +879,7 @@ async function submitPublic(){
         // ส่งไบต์ DOCX ผ่านพารามิเตอร์ pdfBase64 เดิม — edge function แนบไฟล์ตามชื่อ .docx ให้เอง (ไม่ต้อง redeploy)
         const r=await callFn('send-public-report',{to:email,subject:'รายงานการตรวจสอบระบบ TDAC '+dispDate(date)+' ('+shift+')',filename:fn,pdfBase64:b64,message:msg});
         if(r.error)toast('บันทึกรายงานแล้ว แต่ส่งอีเมลไม่สำเร็จ: '+r.error,true);
-        else toast('ส่งรายงาน (DOCX) ไปที่ '+email+' แล้ว ✓');
+        else toast('ระบบอีเมลรับคำขอส่งรายงานไปที่ '+email+' แล้ว กรุณาตรวจสอบกล่องจดหมาย');
       }
     }catch(e){toast('บันทึกรายงานแล้ว แต่สร้าง/ส่งไฟล์ไม่สำเร็จ: '+((e&&e.message)||e),true);}
   }
@@ -1523,13 +1523,13 @@ async function renderEmails(){
   $('content').innerHTML=LOADING;
   const {data,error}=await sb.from('email_log').select('*').order('created_at',{ascending:false}).limit(500);
   if(error){$('content').innerHTML='<div class="panel"><div class="panel-title">อีเมลที่ส่งออก</div><div class="empty" style="text-align:left;line-height:1.7">อ่านประวัติไม่สำเร็จ: <b>'+esc(error.message)+'</b><br>ต้องรัน <code>migration-email-log.sql</code> ใน Supabase SQL Editor และ deploy ฟังก์ชัน send-report / send-public-report ก่อน</div></div>';return;}
-  const rows=data||[],st={sent:['ส่งแล้ว','ok'],failed:['ส่งไม่สำเร็จ','bad'],blocked:['ถูกบล็อก','bad']};
+  const rows=data||[],st={sent:['ผู้ให้บริการรับคำขอ','neutral'],failed:['ส่งไม่สำเร็จ','bad'],blocked:['ถูกบล็อก','bad']};
   const f=(filter||'').toLowerCase();
   const v2=rows.filter(r=>!f||[r.actor,r.recipients,r.subject,r.filenames,r.message,r.error,r.status,r.fn].join(' ').toLowerCase().includes(f));
   const n=s=>rows.filter(r=>r.status===s).length;
-  $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ส่ง ผู้รับ หัวเรื่อง ไฟล์ หรือข้อความ"><button class="btn" onclick="filter=\'\';renderEmails()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด · ส่งแล้ว '+n('sent')+' · ไม่สำเร็จ '+n('failed')+' · ถูกบล็อก '+n('blocked')+'</span></div>'+
-    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>สถานะ</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>หัวเรื่อง</th><th>ไฟล์แนบ</th><th>ข้อความ / สาเหตุ</th></tr></thead><tbody>'+
-    (v2.map(r=>{const s=st[r.status]||[r.status,'neutral'];return '<tr><td class="nowrap">'+esc(fmtDateTime24(r.created_at,true))+'</td><td><span class="tag '+s[1]+'">'+esc(s[0])+'</span></td><td>'+esc(r.actor||(r.fn==='send-public-report'?'ฟอร์มสาธารณะ':'-'))+'</td><td>'+esc(r.recipients||'-')+'</td><td>'+esc(r.subject||'-')+'</td><td>'+esc(r.filenames||'-')+'</td><td class="comment">'+(r.error?'<b>'+esc(r.error)+'</b><br>':'')+esc(r.message||'')+'</td></tr>';}).join('')||'<tr><td colspan="7" class="empty">ยังไม่มีประวัติการส่งอีเมล</td></tr>')+
+  $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ส่ง ผู้รับ หัวเรื่อง ไฟล์ หรือข้อความ"><button class="btn" onclick="filter=\'\';renderEmails()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด · ผู้ให้บริการรับคำขอ '+n('sent')+' · ไม่สำเร็จ '+n('failed')+' · ถูกบล็อก '+n('blocked')+' (การรับคำขอไม่ยืนยันการส่งถึงปลายทาง ตรวจสอบสถานะใน Brevo Logs)</span></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>สถานะ</th><th>Brevo Message ID</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>หัวเรื่อง</th><th>ไฟล์แนบ</th><th>ข้อความ / สาเหตุ</th></tr></thead><tbody>'+
+    (v2.map(r=>{const s=st[r.status]||[r.status,'neutral'];return '<tr><td class="nowrap">'+esc(fmtDateTime24(r.created_at,true))+'</td><td><span class="tag '+s[1]+'">'+esc(s[0])+'</span></td><td>'+esc(r.provider_ref||'-')+'</td><td>'+esc(r.actor||(r.fn==='send-public-report'?'ฟอร์มสาธารณะ':'-'))+'</td><td>'+esc(r.recipients||'-')+'</td><td>'+esc(r.subject||'-')+'</td><td>'+esc(r.filenames||'-')+'</td><td class="comment">'+(r.error?'<b>'+esc(r.error)+'</b><br>':'')+esc(r.message||'')+'</td></tr>';}).join('')||'<tr><td colspan="8" class="empty">ยังไม่มีประวัติการส่งอีเมล</td></tr>')+
     '</tbody></table></div>';
 }
 function renderPerms(){
@@ -1953,7 +1953,7 @@ async function emailReportPDF(start,end,word,label,suffix){
   const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
   if(!list.length||!list.every(e=>reMail.test(e)))return toast('อีเมลผู้รับไม่ถูกต้อง: '+(list.join(', ')||'(ว่าง)'),true);
   const to=list.join(',');toast('กำลังสร้างรายงาน DOCX...');
-  try{const r=await emailReport(to,start,end,word,label,suffix);if(!r.ok)return toast('ส่งไม่สำเร็จ: '+(r.error||''),true);toast('ส่งอีเมลแล้ว (DOCX) → '+to);closeReport();}
+  try{const r=await emailReport(to,start,end,word,label,suffix);if(!r.ok)return toast('ส่งไม่สำเร็จ: '+(r.error||''),true);toast('ระบบอีเมลรับคำขอส่งรายงานแล้ว → '+to+' กรุณาตรวจสอบกล่องจดหมาย');closeReport();}
   catch(e){toast('สร้าง/ส่งรายงานไม่สำเร็จ: '+((e&&e.message)||e),true);}
 }
 

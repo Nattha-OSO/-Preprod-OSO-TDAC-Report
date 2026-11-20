@@ -76,8 +76,10 @@ Deno.serve(async (req) => {
       await logMail({ ...L, status: "failed", error: "Brevo " + res.status });
       return json({ error: "Brevo ปฏิเสธ: " + t.slice(0, 300) }, 500);
     }
-    await logMail({ ...L, status: "sent" });
-    return json({ ok: true, sent: email });
+    const brevo = await res.json().catch(() => ({}));
+    const providerRef = String(brevo?.messageId || brevo?.messageIds?.[0] || "");
+    await logMail({ ...L, status: "sent", providerRef });
+    return json({ ok: true, accepted: email, providerRef });
   } catch (e) {
     return json({ error: "ส่งอีเมลไม่สำเร็จ: " + String((e as any)?.message || e) }, 500);
   }

@@ -5,7 +5,7 @@ const els={};const el=id=>els[id]||(els[id]={innerHTML:'',textContent:'',classLi
 const c={window:{addEventListener(){}},document:{addEventListener(){},getElementById:el},setTimeout,clearTimeout};
 vm.createContext(c);vm.runInContext(app,c);
 const rows=[
- {created_at:'2026-11-19T01:00:00Z',status:'sent',fn:'send-report',actor:'a@x.com',recipients:'b@x.com',subject:'S1',filenames:'r.docx',message:'hello'},
+ {created_at:'2026-11-19T01:00:00Z',status:'sent',fn:'send-report',actor:'a@x.com',recipients:'b@x.com',provider_ref:'<abc@smtp-relay.mailin.fr>',subject:'S1',filenames:'r.docx',message:'hello'},
  {created_at:'2026-11-19T01:01:00Z',status:'blocked',fn:'send-public-report',actor:null,recipients:'c@x.com',subject:'<img src=x onerror=alert(1)>',filenames:'x.docm',message:'m',error:'only .docx allowed'},
  {created_at:'2026-11-19T01:02:00Z',status:'failed',fn:'send-report',actor:'a@x.com',recipients:'d@x.com',subject:'S3',filenames:'r.docx',message:'m',error:'Brevo 401'}];
 let table=null;
@@ -19,7 +19,9 @@ c.__rows=rows;
   vm.runInContext("user={isAdmin:true};filter=''",c);await vm.runInContext('renderEmails()',c);
   assert.equal(c.__t,'email_log');
   const h=els.content.innerHTML;
-  assert.ok(h.includes('ส่งแล้ว 1')&&h.includes('ไม่สำเร็จ 1')&&h.includes('ถูกบล็อก 1'),'counts');
+  assert.ok(h.includes('ผู้ให้บริการรับคำขอ 1')&&h.includes('ไม่สำเร็จ 1')&&h.includes('ถูกบล็อก 1'),'counts');
+  assert.ok(h.includes('Brevo Message ID')&&!h.includes('ส่งแล้ว'),'sent is not shown as delivered');
+  assert.ok(h.includes('&lt;abc@smtp-relay.mailin.fr&gt;'),'provider ref shown and escaped');
   assert.ok(h.includes('ฟอร์มสาธารณะ')&&h.includes('only .docx allowed')&&h.includes('Brevo 401'));
   assert.ok(!h.includes('<img src=x'),'subject must be HTML-escaped');assert.ok(h.includes('&lt;img'));
   // wiring
