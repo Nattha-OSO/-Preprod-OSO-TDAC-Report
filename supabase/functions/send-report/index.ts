@@ -8,6 +8,7 @@
 //      SENDER_EMAIL="nattha.b@somapait.com" SENDER_NAME="OSO-TDAC Operational Report"
 // ============================================================
 import { APPROVED_ROLES, badAttachment, badLinks } from "../_shared/guard.ts";
+import { logMail } from "../_shared/maillog.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -33,7 +34,10 @@ Deno.serve(async (req) => {
     // บัญชีที่ลงทะเบียนแต่ยังไม่อนุมัติก็ได้ JWT — ต้องเช็ก role ด้วย ไม่งั้นใช้ส่งเมลปลอมได้
     const caller = await ures.json().catch(() => ({}));
     const role = caller?.app_metadata?.role || "";
-    if (!APPROVED_ROLES.includes(role)) return json({ error: "forbidden: account not approved" }, 403);
+    if (!APPROVED_ROLES.includes(role)) {
+      await logMail({ fn: "send-report", status: "blocked", actor: caller?.email, error: "account not approved" });
+      return json({ error: "forbidden: account not approved" }, 403);
+    }
 
     const body = await req.json().catch(() => ({}));
     const { to, subject, filename, pdfBase64, message } = body;
@@ -45,9 +49,13 @@ Deno.serve(async (req) => {
     const recipients = String(to).split(/[,;]/).map((s) => s.trim()).filter(Boolean);
     if (!recipients.length) return json({ error: "ไม่มีอีเมลผู้รับ" }, 400);
     if (recipients.length > 20) return json({ error: "ผู้รับเกิน 20 คน" }, 400);
-    for (const a of atts) { const e = badAttachment(a.name, a.content); if (e) return json({ error: e }, 400); }
+    const actor = caller?.email || null, names = atts.map((a: any) => a.name).join(", ");
+    for (const a of atts) {
+      const e = badAttachment(a.name, a.content);
+      if (e) { await logMail({ fn: "send-report", status: "blocked", actor, recipients: recipients.join(", "), subject, filenames: names, message, error: e }); return json({ error: e }, 400); }
+    }
     const le = badLinks(String(subject || "") + " " + String(message || ""), Deno.env.get("APP_URL"));
-    if (le) return json({ error: le }, 400);
+    if (le) { await logMail({ fn: "send-report", status: "blocked", actor, recipients: recipients.join(", "), subject, filenames: names, message, error: le }); return json({ error: le }, 400); }
 
     const apiKey = Deno.env.get("BREVO_API_KEY");
     const senderEmail = Deno.env.get("SENDER_EMAIL");
@@ -70,8 +78,10 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) {
       const t = await res.text();
+      await logMail({ fn: "send-report", status: "failed", actor, recipients: recipients.join(", "), subject, filenames: names, message, error: "Brevo " + res.status });
       return json({ error: "Brevo ปฏิเสธ: " + t.slice(0, 300) }, 500);
     }
+    await logMail({ fn: "send-report", status: "sent", actor, recipients: recipients.join(", "), subject, filenames: names, message });
     return json({ ok: true, sent: recipients.length });
   } catch (e) {
     return json({ error: "ส่งอีเมลไม่สำเร็จ: " + String((e as any)?.message || e) }, 500);

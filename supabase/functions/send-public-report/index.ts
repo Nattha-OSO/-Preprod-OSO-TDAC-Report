@@ -6,6 +6,7 @@
 //  ใช้ความลับชุดเดียวกับ send-report: BREVO_API_KEY, SENDER_EMAIL, SENDER_NAME
 // ============================================================
 import { badAttachment, badLinks } from "../_shared/guard.ts";
+import { logMail } from "../_shared/maillog.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -27,12 +28,16 @@ Deno.serve(async (req) => {
     const email = String(to || "").normalize("NFKC").replace(/[^\x21-\x7E]/g, "").toLowerCase();
     if (!RE_MAIL.test(email)) return json({ error: "อีเมลผู้รับไม่ถูกต้อง" }, 400);
     if (!pdfBase64) return json({ error: "ไม่มีไฟล์ PDF แนบ" }, 400);
+    const L = { fn: "send-public-report", recipients: email, subject, filenames: filename, message };
     const ae = badAttachment(filename, pdfBase64);
-    if (ae) return json({ error: ae }, 400);
+    if (ae) { await logMail({ ...L, status: "blocked", error: ae }); return json({ error: ae }, 400); }
     const le = badLinks(String(subject || "") + " " + String(message || ""), Deno.env.get("APP_URL"));
-    if (le) return json({ error: le }, 400);
+    if (le) { await logMail({ ...L, status: "blocked", error: le }); return json({ error: le }, 400); }
     // หัวเรื่องต้องเป็นรายงานจริงเท่านั้น (กันใช้เป็นช่องส่งฟิชชิ่ง)
-    if (subject && !String(subject).startsWith("รายงานการตรวจสอบระบบ TDAC")) return json({ error: "หัวเรื่องไม่ถูกต้อง" }, 400);
+    if (subject && !String(subject).startsWith("รายงานการตรวจสอบระบบ TDAC")) {
+      await logMail({ ...L, status: "blocked", error: "bad subject" });
+      return json({ error: "หัวเรื่องไม่ถูกต้อง" }, 400);
+    }
 
     // ---- กันสแปม: อีเมลผู้รับต้องมีในทะเบียน officers.email ----
     const url = Deno.env.get("SUPABASE_URL")!;
@@ -43,6 +48,7 @@ Deno.serve(async (req) => {
     );
     const rows = await q.json().catch(() => []);
     if (!Array.isArray(rows) || !rows.length) {
+      await logMail({ ...L, status: "blocked", error: "recipient not in officers" });
       return json({ error: "อีเมลนี้ไม่อยู่ในทะเบียนเจ้าหน้าที่ OSO — ให้ผู้ดูแลระบบเพิ่มอีเมลในเมนูจัดการรายชื่อก่อน" }, 403);
     }
 
@@ -67,8 +73,10 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) {
       const t = await res.text();
+      await logMail({ ...L, status: "failed", error: "Brevo " + res.status });
       return json({ error: "Brevo ปฏิเสธ: " + t.slice(0, 300) }, 500);
     }
+    await logMail({ ...L, status: "sent" });
     return json({ ok: true, sent: email });
   } catch (e) {
     return json({ error: "ส่งอีเมลไม่สำเร็จ: " + String((e as any)?.message || e) }, 500);

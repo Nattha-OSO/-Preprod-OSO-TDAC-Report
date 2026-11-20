@@ -5,7 +5,7 @@
    ============================================================ */
 
 // ---------- ค่าคงที่ ----------
-const APP_VERSION='64';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
+const APP_VERSION='65';   // เลข build สำหรับ cache-busting (?v=) และเวอร์ชันของร่างใน localStorage
 const APP_RELEASE='2026.11.00';   // เวอร์ชันของระบบที่แสดงให้ผู้ใช้เห็น (ปี.เดือน.รุ่นย่อย)
 const KIOSK_COUNT=20;
 const KIOSKS=Array.from({length:KIOSK_COUNT},(_,i)=>'IMM'+String(i+1).padStart(3,'0'));
@@ -144,7 +144,7 @@ async function loadPerms(notify){
 }
 function applyRoleUI(){
   const show=(id,ok)=>{const n=$(id);if(n)n.classList.toggle('hidden',!ok);};
-  show('navSpeed',user.isAdmin);show('navUsers',user.isAdmin);show('navPerms',user.isAdmin);show('navAudit',user.isAdmin);show('navAutoReport',user.isAdmin);
+  show('navSpeed',user.isAdmin);show('navUsers',user.isAdmin);show('navPerms',user.isAdmin);show('navAudit',user.isAdmin);show('navEmails',user.isAdmin);show('navAutoReport',user.isAdmin);
   show('navDirectory',user.isAdmin||can('manage_directory'));
   show('btnReportTop',can('view_reports'));show('btnReportNav',can('view_reports'));show('btnCsvNav',can('view_reports'));
   if($('userRole'))$('userRole').textContent=user.role||'-';
@@ -1133,9 +1133,9 @@ function showView(v,btn){
 function toggleSide(){const open=$('side').classList.toggle('open');const b=$('sideBackdrop');if(b)b.classList.toggle('open',open);}
 function closeSide(){$('side').classList.remove('open');const b=$('sideBackdrop');if(b)b.classList.remove('open');}
 function render(){
-  const t={dashboard:'แดชบอร์ด',reports:'รายการรายงาน',kiosks:'สรุปรายเครื่อง Kiosk',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อเจ้าหน้าที่',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',autoreport:'ตั้งค่าส่งอีเมลอัตโนมัติ',help:'คู่มือการใช้งาน'};
+  const t={dashboard:'แดชบอร์ด',reports:'รายการรายงาน',kiosks:'สรุปรายเครื่อง Kiosk',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อเจ้าหน้าที่',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',emails:'อีเมลที่ส่งออก',autoreport:'ตั้งค่าส่งอีเมลอัตโนมัติ',help:'คู่มือการใช้งาน'};
   $('pageTitle').textContent=t[view]||'แดชบอร์ด';
-  ({speed:renderSpeedDashboard,dashboard:renderDashboard,reports:renderReports,kiosks:renderKiosks,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,autoreport:renderAutoReport,help:renderHelp}[view]||renderDashboard)();
+  ({speed:renderSpeedDashboard,dashboard:renderDashboard,reports:renderReports,kiosks:renderKiosks,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,emails:renderEmails,autoreport:renderAutoReport,help:renderHelp}[view]||renderDashboard)();
 }
 function stat(label,val,sub,color){return '<div class="stat"><div class="stat-label">'+label+'</div><div class="stat-num" style="color:'+(color||'var(--navy)')+'">'+val+'</div><div class="mini">'+(sub||'')+'</div></div>';}
 
@@ -1303,6 +1303,7 @@ function renderHelp(){
       '<b>จัดการผู้ใช้ระบบ</b> — เพิ่ม/เปลี่ยนสิทธิ์/ลบบัญชี + อนุมัติคำขอลงทะเบียน',
       '<b>จัดการสิทธิ์</b> — กำหนดว่า senior/manager ทำอะไรได้ (มีผลทันที)',
       '<b>บันทึกการใช้งานระบบ (Audit Log)</b> — ประวัติการเพิ่ม/แก้/ลบ/เข้าระบบ',
+      '<b>อีเมลที่ส่งออก</b> — ประวัติอีเมลรายงานทุกฉบับที่ระบบส่ง (ผู้ส่ง ผู้รับ หัวเรื่อง ไฟล์แนบ สถานะ ส่งแล้ว/ไม่สำเร็จ/ถูกบล็อก) ค้นหาได้',
       '<b>ตั้งค่าส่งอีเมลอัตโนมัติ</b> — ส่งรายงาน DOCX ของเดือนก่อนหน้าอัตโนมัติ 1 ครั้ง/เดือน'
     ]));
   h+=sec('D. รายงานและการส่งออก',
@@ -1514,6 +1515,21 @@ async function renderAudit(){
   $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ใช้ การกระทำ หรือรายละเอียด"><button class="btn" onclick="filter=\'\';renderAudit()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด</span></div>'+
     '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>ส่วน</th><th>รายละเอียด</th></tr></thead><tbody>'+
     (v2.map(r=>'<tr><td class="nowrap">'+esc(fmtDateTime24(r.created_at,true))+'</td><td>'+esc(r.actor||'-')+'</td><td><span class="tag neutral">'+esc(actMap[r.action]||r.action)+'</span></td><td>'+esc(r.entity||'-')+'</td><td class="comment">'+esc(r.detail||'-')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ยังไม่มีบันทึก</td></tr>')+
+    '</tbody></table></div>';
+}
+// ponytail: shows the latest 500 sends; add date filter/pagination if the log outgrows that.
+async function renderEmails(){
+  if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
+  $('content').innerHTML=LOADING;
+  const {data,error}=await sb.from('email_log').select('*').order('created_at',{ascending:false}).limit(500);
+  if(error){$('content').innerHTML='<div class="panel"><div class="panel-title">อีเมลที่ส่งออก</div><div class="empty" style="text-align:left;line-height:1.7">อ่านประวัติไม่สำเร็จ: <b>'+esc(error.message)+'</b><br>ต้องรัน <code>migration-email-log.sql</code> ใน Supabase SQL Editor และ deploy ฟังก์ชัน send-report / send-public-report ก่อน</div></div>';return;}
+  const rows=data||[],st={sent:['ส่งแล้ว','ok'],failed:['ส่งไม่สำเร็จ','bad'],blocked:['ถูกบล็อก','bad']};
+  const f=(filter||'').toLowerCase();
+  const v2=rows.filter(r=>!f||[r.actor,r.recipients,r.subject,r.filenames,r.message,r.error,r.status,r.fn].join(' ').toLowerCase().includes(f));
+  const n=s=>rows.filter(r=>r.status===s).length;
+  $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ส่ง ผู้รับ หัวเรื่อง ไฟล์ หรือข้อความ"><button class="btn" onclick="filter=\'\';renderEmails()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด · ส่งแล้ว '+n('sent')+' · ไม่สำเร็จ '+n('failed')+' · ถูกบล็อก '+n('blocked')+'</span></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>สถานะ</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>หัวเรื่อง</th><th>ไฟล์แนบ</th><th>ข้อความ / สาเหตุ</th></tr></thead><tbody>'+
+    (v2.map(r=>{const s=st[r.status]||[r.status,'neutral'];return '<tr><td class="nowrap">'+esc(fmtDateTime24(r.created_at,true))+'</td><td><span class="tag '+s[1]+'">'+esc(s[0])+'</span></td><td>'+esc(r.actor||(r.fn==='send-public-report'?'ฟอร์มสาธารณะ':'-'))+'</td><td>'+esc(r.recipients||'-')+'</td><td>'+esc(r.subject||'-')+'</td><td>'+esc(r.filenames||'-')+'</td><td class="comment">'+(r.error?'<b>'+esc(r.error)+'</b><br>':'')+esc(r.message||'')+'</td></tr>';}).join('')||'<tr><td colspan="7" class="empty">ยังไม่มีประวัติการส่งอีเมล</td></tr>')+
     '</tbody></table></div>';
 }
 function renderPerms(){
